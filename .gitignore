@@ -1,0 +1,18 @@
+node_modules
+dist
+dist-test
+data
+.env
+*.log
+.DS_Store
+backend/data
+frontend/dist
+packages/shared/dist
+
+# ── 临时文件 / 运行时数据 ─────────────────
+.tmp-*/
+tmp-pkg/
+tmp-*
+backend/tmp-*
+npm-install-out.txt
+config/redis/

@@ -1,0 +1,38 @@
+# 单文件部署：无需 .env
+# 目录约定（在仓库/部署根目录执行）：
+#   ./config  → 容器 /app/data（库、上传、内置 Redis）
+# 镜像内已含 Redis（BullMQ），不必再配 REDIS_URL
+#
+# 启动：
+#   docker compose pull && docker compose up -d
+# 日志：
+#   docker compose logs -f
+# 更新：
+#   docker compose pull && docker compose up -d
+
+name: ai-video-studio
+
+services:
+  ai-video-studio:
+    image: liuxiaodi2026/ai-video-studio:latest
+    container_name: ai-video-studio
+    restart: unless-stopped
+    ports:
+      - "9088:80"
+    volumes:
+      - ./config:/app/data
+    environment:
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      JWT_SECRET: aivideo-local-jwt-secret-do-not-use-in-prod
+      SETTINGS_SECRET: aivideo-local-settings-secret-do-not-use-in-prod
+      STORAGE_MODE: local
+      TYPEORM_SYNCHRONIZE: "false"
+      CORS_ORIGIN: "*"
+      REDIS_URL: redis://127.0.0.1:6379
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 50s

@@ -1,0 +1,32 @@
+# 本机构建用（同样不依赖 .env；数据在 ./config）
+#   docker compose up -d --build
+
+name: ai-video-studio
+
+services:
+  ai-video-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ai-video-studio:local
+    container_name: ai-video-studio
+    restart: unless-stopped
+    ports:
+      - "9088:80"
+    volumes:
+      - ./config:/app/data
+    environment:
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin123
+      JWT_SECRET: aivideo-local-jwt-secret-do-not-use-in-prod
+      SETTINGS_SECRET: aivideo-local-settings-secret-do-not-use-in-prod
+      TYPEORM_SYNCHRONIZE: "true"
+      CORS_ORIGIN: "*"
+      REDIS_URL: redis://127.0.0.1:6379
+      STORAGE_MODE: local
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 50s
