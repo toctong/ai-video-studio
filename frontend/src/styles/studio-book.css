@@ -1,0 +1,195 @@
+/**
+ * 小说详情页（概览 / 写作 / 大纲）与「我的项目」对齐的深色壳
+ * 页面根节点加 class="studio-book"
+ */
+.studio-book {
+  --shell-bg: var(--studio-bg);
+  --bg: var(--studio-bg);
+  --bg-0: var(--studio-bg);
+  --surface: var(--studio-panel);
+  --surface-2: var(--studio-panel-3);
+  --surface-muted: var(--studio-panel-3);
+  --bg-1: var(--studio-panel);
+  --bg-2: var(--studio-panel);
+  --bg-3: var(--studio-panel-3);
+  --ink: var(--studio-ink);
+  --text: var(--studio-ink);
+  --muted: var(--studio-muted);
+  --line: var(--studio-line-strong);
+  --hover-bg: var(--studio-glass-2);
+  --accent: var(--studio-text);
+  --accent-2: var(--studio-ink);
+  --accent-ink: var(--studio-bg);
+  --accent-soft: var(--studio-glass-2);
+  --scroll-thumb: var(--studio-panel-3);
+  --ok: #4ade80;
+  --warn: #fbbf24;
+  --danger: #f87171;
+  --el-bg-color: var(--studio-panel);
+  --el-bg-color-overlay: var(--studio-panel);
+  --el-fill-color-blank: var(--studio-panel);
+  --el-fill-color-light: var(--studio-panel-3);
+  --el-text-color-primary: var(--studio-ink);
+  --el-text-color-regular: var(--studio-text);
+  --el-text-color-secondary: var(--studio-muted);
+  --el-border-color: var(--studio-line-strong);
+  --el-color-primary: var(--studio-text);
+  --el-color-primary-light-3: var(--studio-ink);
+  --el-button-bg-color: var(--studio-panel-3);
+  --el-button-text-color: var(--studio-ink);
+  --el-button-border-color: var(--studio-line-strong);
+
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 20px 28px 24px !important;
+  background: var(--studio-bg) !important;
+  color: var(--studio-ink);
+}
+
+.studio-book.write-page {
+  flex: 1;
+  min-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.studio-book > .head,
+.studio-book > .tool-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.studio-book .tool-sub {
+  margin: 0;
+  color: var(--studio-faint);
+  font-size: 12px;
+  line-height: 1.5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 2px;
+}
+
+.studio-book .tool-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.studio-book.nested {
+  padding: 0 !important;
+  background: transparent !important;
+}
+
+.studio-book .head-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.studio-book .back-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--studio-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.studio-book .back-btn:hover {
+  background: var(--studio-glass-2);
+  color: var(--studio-ink);
+}
+
+.studio-book .head-copy {
+  min-width: 0;
+}
+
+.studio-book .page-title {
+  margin: 0 !important;
+  font-family: inherit !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--studio-ink) !important;
+  line-height: 1.3 !important;
+  display: block !important;
+}
+
+.studio-book .page-sub {
+  margin: 2px 0 0 !important;
+  font-size: 12px !important;
+  color: var(--studio-faint) !important;
+  line-height: 1.5 !important;
+  max-width: none !important;
+}
+
+.studio-book .head-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.studio-book .pill-btn {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--studio-panel);
+  color: var(--studio-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.studio-book .pill-btn:hover:not(:disabled) {
+  background: var(--studio-panel-3);
+  color: var(--studio-ink);
+}
+.studio-book .pill-btn:disabled {
+  opacity: 0.5;
+  cursor: wait;
+}
+.studio-book .pill-btn.primary {
+  background: #10b981;
+  color: #052e1c;
+  font-weight: 650;
+}
+.studio-book .pill-btn.primary:hover:not(:disabled) {
+  background: #34d399;
+  color: #052e1c;
+}
+
+.studio-book .write-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.studio-book .panel-card {
+  border: 1px solid var(--studio-line-strong);
+  border-radius: 16px;
+  background: var(--studio-panel);
+  overflow: hidden;
+}

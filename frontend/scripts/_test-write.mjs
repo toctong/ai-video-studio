@@ -1,0 +1,1 @@
+import fs from " fs;\nconsole.log(1);\n

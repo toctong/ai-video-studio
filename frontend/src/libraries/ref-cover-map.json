@@ -1,0 +1,22 @@
+{
+  "style": {
+    "日韩漫风": [
+      "/refs/style/anime-1.png",
+      "/refs/style/anime-2.png"
+    ],
+    "国风工笔": [
+      "/refs/style/guofeng-1.jpg",
+      "/refs/style/guofeng-2.jpg"
+    ],
+    "写实电影": [
+      "/refs/style/cinematic-1.jpg",
+      "/refs/style/cinematic-2.jpg"
+    ],
+    "插画潮流": [
+      "/refs/style/illustration-1.png",
+      "/refs/style/illustration-2.png"
+    ]
+  },
+  "character": {},
+  "shot": {}
+}

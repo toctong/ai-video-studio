@@ -1,0 +1,228 @@
+/* 仅作用于 .skills-page，避免全局污染项目页等其它路由 */
+.skills-page {
+  min-height: 100%;
+  overflow: visible;
+  padding: 16px 28px 48px;
+  box-sizing: border-box;
+  background: var(--studio-bg);
+  color: var(--studio-ink);
+}
+
+.skills-page .skills-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.skills-page .filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.skills-page .filter-pill {
+  height: 32px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--studio-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.skills-page .filter-pill:hover {
+  color: var(--studio-ink);
+  background: var(--studio-glass-2);
+}
+.skills-page .filter-pill.on {
+  background: var(--studio-ink);
+  color: var(--studio-bg);
+}
+
+.skills-page .toolbar-end {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.skills-page .hot-toggle {
+  height: 32px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--studio-muted);
+  font: inherit;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.skills-page .hot-toggle.on {
+  color: #f472b6;
+}
+
+.skills-page .search-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  min-width: 180px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--studio-panel);
+  color: var(--studio-faint);
+}
+.skills-page .search-pill input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--studio-ink);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.skills-page .search-pill input::placeholder {
+  color: var(--studio-faint);
+}
+
+/* 普通列表网格；VirtualCardGrid 自带列布局，勿套 display:grid */
+.skills-page .skill-grid:not(.virtual-card-grid) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.skills-page .skill-grid.virtual-card-grid {
+  width: 100%;
+}
+
+.skills-page .skill-card {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  background: var(--studio-panel);
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.skills-page .skill-card:hover {
+  background: var(--studio-panel);
+  transform: translateY(-1px);
+}
+
+.skills-page .cover {
+  width: 120px;
+  height: 120px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--studio-panel-2);
+  flex-shrink: 0;
+}
+.skills-page .cover img,
+.skills-page .cover video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.skills-page .cover .lazy-cover {
+  width: 100%;
+  height: 100%;
+}
+
+.skills-page .body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 2px;
+}
+.skills-page .body strong {
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.skills-page .author {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--studio-faint);
+}
+.skills-page .body p {
+  margin: 4px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--studio-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+.skills-page .foot {
+  margin-top: auto;
+  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.skills-page .uses {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--studio-faint);
+}
+.skills-page .fav {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--studio-muted);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  padding: 0;
+}
+.skills-page .fav:hover,
+.skills-page .fav.on {
+  color: #f472b6;
+}
+
+.skills-page .empty {
+  margin: 48px 0 0;
+  text-align: center;
+  color: var(--studio-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .skills-page .skill-card {
+    grid-template-columns: 96px 1fr;
+  }
+  .skills-page .cover {
+    width: 96px;
+    height: 96px;
+  }
+}
