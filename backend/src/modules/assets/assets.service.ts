@@ -140,7 +140,11 @@ export class AssetsService {
     if (opts?.libraryOnly) {
       out = out.filter((a) => !(a.meta as any)?.libraryHidden);
     }
-    return out;
+    await this.fileOss.getConfig();
+    return out.map((a) => {
+      const url = this.fileOss.toCanonicalUrl(String(a.url || ''));
+      return url === a.url ? a : { ...a, url };
+    });
   }
 
   async get(id: string) {
@@ -259,12 +263,15 @@ export class AssetsService {
     }
   }
 
-  /** 展示/节点回写：仅返回本系统对象存储永久直链（旧 FileOSS URL 自动改写为 MinIO） */
+  /** 展示/节点回写：本系统对象存储直链（含 /nami/... 改写为 MinIO） */
   resolveMediaUrl(asset: Pick<Asset, 'url' | 'meta'> | null | undefined): string {
     if (!asset) return '';
     const url = String(asset.url || '').trim();
-    if (url && this.fileOss.isOurUrl(url)) return this.fileOss.toCanonicalUrl(url);
-    return '';
+    if (!url) return '';
+    if (url.startsWith('/nami/') || this.fileOss.isOurUrl(url)) {
+      return this.fileOss.toCanonicalUrl(url);
+    }
+    return /^https?:\/\//i.test(url) ? url : '';
   }
 
   /** @deprecated 不再提供本地 uploads 展示地址 */

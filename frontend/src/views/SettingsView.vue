@@ -99,24 +99,8 @@
 
         <template v-else-if="section === 'channels'">
           <h2>渠道</h2>
-          <div class="seg" role="tablist" aria-label="渠道">
-            <button
-              v-for="t in channelTabs"
-              :key="t.id"
-              type="button"
-              class="seg-item"
-              role="tab"
-              :class="{ on: channelTab === t.id }"
-              :aria-selected="channelTab === t.id"
-              @click="channelTab = t.id"
-            >
-              {{ t.label }}
-            </button>
-          </div>
-          <div v-if="channelTab === 'hub'" class="form-stack flat">
-            <ChannelsCredentialsPanel mode="channels" :settings="form" @saved="onSaved" />
-          </div>
-          <div v-else class="form-stack flat">
+          <p class="lead">在本机配置火山方舟等渠道的 API Key，不依赖外部 Hub。</p>
+          <div class="form-stack flat">
             <ChannelsCredentialsPanel
               mode="local-channels"
               :settings="form"
@@ -137,40 +121,16 @@
         </template>
 
         <template v-else-if="section === 'storage'">
-          <h2>任务与存储</h2>
-          <p class="lead">MinIO 对象存储、任务并发，以及 AIGC 视频工厂 Hub 同步</p>
-          <div class="seg" role="tablist" aria-label="任务与存储">
-            <button
-              v-for="t in storageTabs"
-              :key="t.id"
-              type="button"
-              class="seg-item"
-              role="tab"
-              :class="{ on: storageTab === t.id }"
-              :aria-selected="storageTab === t.id"
-              @click="storageTab = t.id"
-            >
-              {{ t.label }}
-            </button>
-          </div>
-          <div v-if="storageTab === 'oss'" class="form-stack flat">
-            <FileOssPanel :settings="form" @saved="onSaved" />
-          </div>
-          <div v-else-if="storageTab === 'jobs'" class="form-stack">
+          <h2>任务并发</h2>
+          <p class="lead">同时执行的任务数，保存后立即生效。素材文件在「资产管理」中维护，对象存储由后端写死。</p>
+          <div class="form-stack">
             <div class="field">
               <label>任务队列并发</label>
               <el-input-number v-model="form.jobConcurrency" :min="1" :max="32" />
-              <p class="hint">同时执行的任务数，保存后立即生效</p>
             </div>
             <button type="button" class="btn-save" :disabled="saving" @click="saveSystem">
               {{ saving ? '保存中…' : '保存并发' }}
             </button>
-          </div>
-          <div v-else class="form-stack flat">
-            <p class="sub-lead">
-              通过环境变量或下方表单配置 Hub 地址与 Token，同步提示词广场与模型目录
-            </p>
-            <HubPanel />
           </div>
         </template>
       </section>
@@ -184,8 +144,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import api from '@/api';
 import ChannelsCredentialsPanel from '@/components/settings/ChannelsCredentialsPanel.vue';
-import FileOssPanel from '@/components/settings/FileOssPanel.vue';
-import HubPanel from '@/components/settings/HubPanel.vue';
 import TotpBindPanel from '@/components/settings/TotpBindPanel.vue';
 import { ensureAiSettings } from '@/composables/useAiSettings';
 import { useAuthStore } from '@/stores/auth';
@@ -203,22 +161,10 @@ const sections: Array<{ id: SectionId; label: string; icon: IconName }> = [
   { id: 'notify', label: '通知设置', icon: 'bell' },
   { id: 'channels', label: '渠道', icon: 'zap' },
   { id: 'models', label: '模型', icon: 'sparkles' },
-  { id: 'storage', label: '任务与存储', icon: 'folder' },
-];
-
-const channelTabs = [
-  { id: 'hub' as const, label: 'Hub 渠道' },
-  { id: 'local' as const, label: '本地渠道' },
-];
-const storageTabs = [
-  { id: 'oss' as const, label: '对象存储' },
-  { id: 'jobs' as const, label: '任务并发' },
-  { id: 'hub' as const, label: 'AIGC 视频工厂 Hub' },
+  { id: 'storage', label: '任务并发', icon: 'folder' },
 ];
 
 const section = ref<SectionId>('account');
-const channelTab = ref<(typeof channelTabs)[number]['id']>('hub');
-const storageTab = ref<(typeof storageTabs)[number]['id']>('oss');
 const saving = ref(false);
 const accountSaving = ref(false);
 
@@ -269,31 +215,13 @@ function syncSectionFromRoute() {
   const ids = sections.map((s) => s.id);
   if ((ids as string[]).includes(q)) {
     section.value = q as SectionId;
-    if (q === 'channels') {
-      const tab = String(route.query.tab || '').trim();
-      if (tab === 'hub' || tab === 'local') channelTab.value = tab;
-      else if (tab === 'credentials' || tab === 'providers' || tab === 'local-channels') {
-        channelTab.value = 'local';
-      }
-    }
-    if (q === 'storage') {
-      const tab = String(route.query.tab || '').trim();
-      if (tab === 'jobs' || tab === 'hub' || tab === 'oss') storageTab.value = tab;
-    }
     return;
   }
   if (q === 'username' || q === 'password' || q === 'account') {
     section.value = 'account';
-  } else if (q === 'hub') {
+  } else if (q === 'hub' || q === 'system') {
     section.value = 'storage';
-    storageTab.value = 'hub';
-  } else if (q === 'system') {
-    section.value = 'storage';
-    storageTab.value = 'oss';
-  } else if (q === 'providers' || q === 'credentials' || q === 'local') {
-    section.value = 'channels';
-    channelTab.value = 'local';
-  } else if (q === 'channels') {
+  } else if (q === 'providers' || q === 'credentials' || q === 'local' || q === 'channels') {
     section.value = 'channels';
   } else if (q === 'capability' || q === 'ark' || q === 'theme') {
     section.value = 'models';
@@ -302,28 +230,9 @@ function syncSectionFromRoute() {
 
 watch(section, (id) => {
   const query: Record<string, any> = { ...route.query, section: id };
-  if (id === 'channels') query.tab = channelTab.value;
-  else if (id === 'storage') query.tab = storageTab.value;
-  else delete query.tab;
-  if (
-    String(route.query.section || '') === id &&
-    String(route.query.tab || '') === String(query.tab || '')
-  ) {
-    return;
-  }
+  delete query.tab;
+  if (String(route.query.section || '') === id) return;
   router.replace({ query });
-});
-
-watch(channelTab, (tab) => {
-  if (section.value !== 'channels') return;
-  if (String(route.query.tab || '') === tab) return;
-  router.replace({ query: { ...route.query, section: 'channels', tab } });
-});
-
-watch(storageTab, (tab) => {
-  if (section.value !== 'storage') return;
-  if (String(route.query.tab || '') === tab) return;
-  router.replace({ query: { ...route.query, section: 'storage', tab } });
 });
 
 onMounted(async () => {
@@ -333,15 +242,8 @@ onMounted(async () => {
   try {
     const { data } = await api.get('/settings');
     Object.assign(form, data);
-    if (!data?.fileOss?.configured && section.value !== 'storage') {
-      section.value = 'storage';
-      ElMessage.warning('请先配置 MinIO 对象存储（桶名 + AccessKey）后再使用系统');
-    }
-  } catch (e: any) {
-    const code = e?.response?.data?.code;
-    if (code === 'FILE_OSS_REQUIRED') {
-      section.value = 'storage';
-    }
+  } catch {
+    /* ignore */
   }
 });
 

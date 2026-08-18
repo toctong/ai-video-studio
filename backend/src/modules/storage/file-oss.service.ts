@@ -1,9 +1,13 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import {
+  CreateBucketCommand,
   DeleteObjectCommand,
   DeleteObjectsCommand,
   GetObjectCommand,
+  HeadBucketCommand,
   ListObjectsV2Command,
+  PutBucketCorsCommand,
+  PutBucketPolicyCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -12,7 +16,6 @@ import axios from 'axios';
 import { createReadStream, existsSync, mkdirSync, readdirSync, rmSync, statSync, unlinkSync, writeFileSync } from 'fs';
 import { extname, join, resolve } from 'path';
 import { v4 as uuid } from 'uuid';
-import { isLocalStorageMode } from '../../config/env';
 import { SettingsService, type FileOssConfig } from '../settings/settings.service';
 
 export type FileOssObject = {
@@ -35,12 +38,25 @@ function legacyOssHosts(): string[] {
     .filter(Boolean);
 }
 @Injectable()
-export class FileOssService {
+export class FileOssService implements OnModuleInit {
   private readonly log = new Logger(FileOssService.name);
   private cache: { at: number; cfg: FileOssConfig } | null = null;
   private s3Cache: { key: string; client: S3Client } | null = null;
 
   constructor(private readonly settings: SettingsService) {}
+
+  async onModuleInit() {
+    try {
+      await this.ensureMinioReady();
+    } catch (e: any) {
+      this.log.warn(`MinIO 初始化跳过：${e?.message || e}`);
+    }
+  }
+
+  /** 已配置 AccessKey 的走 MinIO/S3 */
+  private useS3(_cfg: FileOssConfig) {
+    return true;
+  }
 
   invalidateCache() {
     this.cache = null;
@@ -81,19 +97,74 @@ export class FileOssService {
     return cfg;
   }
 
-  /** 桶名 + AccessKeyId + AccessKeySecret + Base URL 齐备 */
+  /** MinIO 须桶名 + Key + 地址齐备 */
   async isConfigured(): Promise<boolean> {
-    if (isLocalStorageMode()) return true;
     const c = await this.getConfig();
     return Boolean(c.baseUrl && c.bucket && c.accessKeyId && c.accessKeySecret);
   }
 
   /** @deprecated 使用 isConfigured() */
   isEnabled() {
-    if (isLocalStorageMode()) return true;
     const c = this.cache?.cfg;
-    if (c) return Boolean(c.baseUrl && c.bucket && c.accessKeyId && c.accessKeySecret);
-    return false;
+    if (!c) return false;
+    if (!this.useS3(c)) return true;
+    return Boolean(c.baseUrl && c.bucket && c.accessKeyId && c.accessKeySecret);
+  }
+
+  /** 确保本地目录或 MinIO 桶（公开读 + CORS）就绪 */
+  async ensureMinioReady() {
+    this.invalidateCache();
+    const cfg = await this.getConfig(true);
+    const client = this.s3(cfg);
+    const bucket = cfg.bucket;
+    try {
+      await client.send(new HeadBucketCommand({ Bucket: bucket }));
+    } catch {
+      await client.send(new CreateBucketCommand({ Bucket: bucket }));
+      this.log.log(`已创建 MinIO 桶「${bucket}」`);
+    }
+    const policy = {
+      Version: '2012-10-17',
+      Statement: [
+        {
+          Effect: 'Allow',
+          Principal: { AWS: ['*'] },
+          Action: ['s3:GetObject'],
+          Resource: [`arn:aws:s3:::${bucket}/*`],
+        },
+      ],
+    };
+    try {
+      await client.send(
+        new PutBucketPolicyCommand({
+          Bucket: bucket,
+          Policy: JSON.stringify(policy),
+        }),
+      );
+    } catch (e: any) {
+      this.log.warn(`设置桶公开读策略失败：${e?.message || e}`);
+    }
+    try {
+      await client.send(
+        new PutBucketCorsCommand({
+          Bucket: bucket,
+          CORSConfiguration: {
+            CORSRules: [
+              {
+                AllowedHeaders: ['*'],
+                AllowedMethods: ['GET', 'HEAD', 'PUT', 'POST', 'DELETE'],
+                AllowedOrigins: ['*'],
+                ExposeHeaders: ['ETag', 'Content-Length', 'Content-Type'],
+                MaxAgeSeconds: 86400,
+              },
+            ],
+          },
+        }),
+      );
+    } catch (e: any) {
+      this.log.warn(`设置桶 CORS 失败：${e?.message || e}`);
+    }
+    this.log.log(`MinIO 就绪：桶「${bucket}」API=${cfg.apiEndpoint || cfg.baseUrl}`);
   }
 
   private s3(cfg: FileOssConfig): S3Client {
@@ -121,9 +192,9 @@ export class FileOssService {
     return client;
   }
 
-  /** 公开读永久直链：{base}/{bucket}/{key}（key 分段编码） */
-  publicUrl(cfg: Pick<FileOssConfig, 'baseUrl' | 'bucket'>, key: string): string {
-    if (isLocalStorageMode()) {
+  /** 公开读永久直链：{base}/{bucket}/{key}（key 分段编码）；本地为 /api/uploads/... */
+  publicUrl(cfg: Pick<FileOssConfig, 'baseUrl' | 'bucket' | 'accessKeyId' | 'accessKeySecret' | 'apiEndpoint'>, key: string): string {
+    if (!this.useS3(cfg as FileOssConfig)) {
       const objectKey = String(key || '').replace(/^\/+/, '');
       return `/api/uploads/${objectKey
         .split('/')
@@ -162,16 +233,15 @@ export class FileOssService {
     return host === cfgHost || host.endsWith(`.${cfgHost}`);
   }
 
-  /** 是否本存储永久直链（含旧 FileOSS /api/v1 与新 MinIO 路径风格） */
+  /** 是否本存储永久直链（含本地 /api/uploads、旧 FileOSS /api/v1 与 MinIO 路径风格） */
   isOurUrl(url: string) {
     const u = String(url || '').trim();
     if (!u) return false;
-    if (isLocalStorageMode()) {
-      return u.startsWith('/api/uploads/') || u.includes('/api/uploads/');
-    }
+    if (u.startsWith('/api/uploads/') || u.includes('/api/uploads/')) return true;
     const cfg = this.cache?.cfg;
-    const base = String(cfg?.baseUrl || '').replace(/\/+$/, '');
-    const bucket = String(cfg?.bucket || '').trim();
+    if (!cfg || !this.useS3(cfg)) return false;
+    const base = String(cfg.baseUrl || '').replace(/\/+$/, '');
+    const bucket = String(cfg.bucket || '').trim();
     if (!base || !bucket) return false;
     try {
       const parsed = new URL(u);
@@ -179,7 +249,9 @@ export class FileOssService {
       const path = parsed.pathname || '';
       if (path.includes(`/api/v1/${bucket}/`)) return true;
       if (
-        (this.isConfiguredHost(host, base) || this.isLegacyHost(host)) &&
+        (this.isConfiguredHost(host, base) ||
+          this.isConfiguredHost(host, String(cfg.apiEndpoint || '')) ||
+          this.isLegacyHost(host)) &&
         (path.startsWith(`/${bucket}/`) || path.includes(`/api/v1/${bucket}/`))
       ) {
         return true;
@@ -200,7 +272,7 @@ export class FileOssService {
   }
 
   /**
-   * 把旧 FileOSS 直链改写成当前 MinIO 公网地址（桶与 key 不变）。
+   * 把旧 FileOSS 直链、以及本机 /nami/... 路径，改写成当前 MinIO 公网地址。
    * 非本存储 URL 原样返回。
    */
   toCanonicalUrl(url: string, cfg?: FileOssConfig): string {
@@ -208,6 +280,7 @@ export class FileOssService {
     if (!u) return '';
     const c = cfg || this.cache?.cfg;
     if (!c?.baseUrl || !c?.bucket) return u;
+    if (u.startsWith('/nami/')) return this.publicUrl(c, u.replace(/^\/+/, ''));
     if (!this.isOurUrl(u)) return u;
     const key = this.keyFromOurUrl(u);
     if (!key) return u;
@@ -258,21 +331,6 @@ export class FileOssService {
   }): Promise<FileOssObject> {
     const cfg = await this.getConfig();
     const key = opts.key.replace(/^\/+/, '');
-    if (isLocalStorageMode()) {
-      await this.ensureLocalUploadRoot();
-      const filePath = this.localPath(key);
-      this.ensureLocalDir(filePath);
-      writeFileSync(filePath, opts.body);
-      const url = this.publicUrl(cfg, key);
-      return {
-        bucket: 'local',
-        key,
-        url,
-        path: filePath,
-        size: opts.body.length,
-        contentType: opts.contentType,
-      };
-    }
     if (!cfg.accessKeyId || !cfg.accessKeySecret || !cfg.bucket) {
       throw new Error('对象存储未配置');
     }
@@ -305,30 +363,7 @@ export class FileOssService {
     metadata?: Record<string, string>;
     maxBytes?: number;
   }): Promise<FileOssObject> {
-    const cfg = await this.getConfig();
-    const key = opts.key.replace(/^\/+/, '');
     const maxBytes = Math.max(1, opts.maxBytes || 512 * 1024 * 1024);
-    if (isLocalStorageMode()) {
-      const res = await axios.get<ArrayBuffer>(opts.sourceUrl, {
-        responseType: 'arraybuffer',
-        timeout: 300_000,
-        maxContentLength: maxBytes,
-        maxBodyLength: maxBytes,
-        validateStatus: (s) => s >= 200 && s < 300,
-      });
-      const body = Buffer.from(res.data);
-      if (body.length > maxBytes) {
-        throw new Error(`远端文件过大（>${maxBytes} bytes）`);
-      }
-      const contentType =
-        opts.contentType ||
-        String(res.headers['content-type'] || '').split(';')[0].trim() ||
-        'application/octet-stream';
-      return this.putObject({ key, body, contentType, metadata: opts.metadata });
-    }
-    if (!cfg.accessKeyId || !cfg.accessKeySecret || !cfg.bucket) {
-      throw new Error('对象存储未配置');
-    }
     const res = await axios.get<ArrayBuffer>(opts.sourceUrl, {
       responseType: 'arraybuffer',
       timeout: 300_000,
@@ -340,6 +375,7 @@ export class FileOssService {
     if (body.length > maxBytes) {
       throw new Error(`远端文件过大（>${maxBytes} bytes）`);
     }
+    const key = opts.key.replace(/^\/+/, '');
     const contentType =
       opts.contentType ||
       String(res.headers['content-type'] || '').split(';')[0].trim() ||
@@ -357,12 +393,12 @@ export class FileOssService {
   async deleteObject(key: string) {
     if (!key) return;
     try {
-      if (isLocalStorageMode()) {
+      const cfg = await this.getConfig();
+      if (!this.useS3(cfg)) {
         const filePath = this.localPath(key);
         if (existsSync(filePath)) unlinkSync(filePath);
         return;
       }
-      const cfg = await this.getConfig();
       if (!cfg.accessKeyId || !cfg.bucket) return;
       await this.s3(cfg).send(
         new DeleteObjectCommand({
@@ -384,7 +420,7 @@ export class FileOssService {
     const cfg = await this.getConfig();
     const objectKey = String(key || '').replace(/^\/+/, '');
     if (!objectKey) throw new Error('对象 key 无效');
-    if (isLocalStorageMode()) {
+    if (!this.useS3(cfg)) {
       const filePath = this.localPath(objectKey);
       if (!existsSync(filePath)) throw new Error('文件不存在');
       return {
@@ -418,11 +454,10 @@ export class FileOssService {
   keyFromOurUrl(url: string): string {
     const u = String(url || '').trim();
     if (!u || !this.isOurUrl(u)) return '';
-    if (isLocalStorageMode()) {
-      const marker = '/api/uploads/';
-      const idx = u.indexOf(marker);
-      if (idx < 0) return '';
-      const raw = u.slice(idx + marker.length).split('?')[0].split('#')[0];
+    const marker = '/api/uploads/';
+    const localIdx = u.indexOf(marker);
+    if (localIdx >= 0) {
+      const raw = u.slice(localIdx + marker.length).split('?')[0].split('#')[0];
       try {
         return decodeURIComponent(raw).replace(/^\/+/, '');
       } catch {
@@ -445,7 +480,8 @@ export class FileOssService {
 
   /** 列举前缀下对象 key（用于项目清理） */
   async listKeys(prefix: string, maxKeys = 1000): Promise<string[]> {
-    if (isLocalStorageMode()) {
+    const cfg = await this.getConfig();
+    if (!this.useS3(cfg)) {
       await this.ensureLocalUploadRoot();
       const root = this.uploadRootDir();
       const p = String(prefix || '').replace(/^\/+/, '');
@@ -468,7 +504,6 @@ export class FileOssService {
       walk(base);
       return keys;
     }
-    const cfg = await this.getConfig();
     if (!cfg.accessKeyId || !cfg.bucket) return [];
     const p = String(prefix || '').replace(/^\/+/, '');
     const limit = Math.min(1000, Math.max(1, maxKeys));
@@ -501,7 +536,8 @@ export class FileOssService {
   async deleteByPrefix(prefix: string) {
     const p = String(prefix || '').replace(/^\/+|\/+$/g, '');
     if (!p) return;
-    if (isLocalStorageMode()) {
+    const cfg = await this.getConfig();
+    if (!this.useS3(cfg)) {
       const root = this.uploadRootDir();
       const target = p ? resolve(root, ...p.split('/')) : root;
       if (existsSync(target) && target !== root) {
@@ -509,7 +545,6 @@ export class FileOssService {
       }
       return;
     }
-    const cfg = await this.getConfig();
     if (!cfg.accessKeyId || !cfg.bucket) return;
     const keys = await this.listKeys(`${p}/`, 1000);
     if (!keys.length) return;
@@ -534,11 +569,11 @@ export class FileOssService {
 
   /** 连通性探测：列举桶（MaxKeys=1） */
   async testConnection(): Promise<{ ok: boolean; message: string }> {
-    if (isLocalStorageMode()) {
+    const cfg = await this.getConfig(true);
+    if (!this.useS3(cfg)) {
       await this.ensureLocalUploadRoot();
       return { ok: true, message: `本地磁盘存储可用（${this.uploadRootDir()}）` };
     }
-    const cfg = await this.getConfig(true);
     if (!cfg.baseUrl || !cfg.bucket || !cfg.accessKeyId || !cfg.accessKeySecret) {
       return { ok: false, message: '请先填写公网地址、桶名、AccessKeyId、AccessKeySecret' };
     }

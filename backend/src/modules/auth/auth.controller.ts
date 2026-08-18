@@ -16,11 +16,11 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { extname } from 'path';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { AvatarService, resolveAvatarDir } from './avatar.service';
+import { AvatarService } from './avatar.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { clearAuthCookie, setAuthCookie } from './auth-cookie';
 import { SkipFileOssSetup } from '../storage/file-oss-setup.guard';
@@ -220,31 +220,22 @@ export class AuthController {
         }
         callback(null, true);
       },
-      storage: diskStorage({
-        destination: (_req, _file, callback) => {
-          try {
-            callback(null, resolveAvatarDir());
-          } catch (err) {
-            callback(err as Error, '');
-          }
-        },
-        filename: (req, file, callback) => {
-          const userId = (req as { user?: { userId?: number } }).user?.userId || 'unknown';
-          const ext = extname(file.originalname).toLowerCase();
-          const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext) ? ext : '.jpg';
-          callback(null, `user-${userId}-${Date.now()}${safeExt}`);
-        },
-      }),
+      storage: memoryStorage(),
     }),
   )
   async uploadAvatar(
     @Req() req: { user: { userId: number } },
-    @UploadedFile() file?: { filename: string },
+    @UploadedFile() file?: { buffer?: Buffer; mimetype?: string; originalname?: string },
   ) {
-    if (!file?.filename) throw new BadRequestException('请选择头像图片');
-    this.avatars.clearUserAvatarFiles(req.user.userId, file.filename);
-    const avatar = `/api/uploads/avatars/${file.filename}`;
-    return this.auth.updateProfileFields(req.user.userId, { avatar });
+    if (!file?.buffer?.length) throw new BadRequestException('请选择头像图片');
+    const ext = extname(file.originalname || '').toLowerCase();
+    const safeExt = ['.jpg', '.jpeg', '.png', '.webp', '.gif'].includes(ext) ? ext : '.png';
+    return this.avatars.saveBuffer(
+      req.user.userId,
+      file.buffer,
+      file.mimetype || 'image/png',
+      `avatar${safeExt}`,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

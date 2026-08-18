@@ -5,6 +5,7 @@
 import { computed, ref, type PropType } from 'vue';
 import { useDynamicComponent } from 'a2ui-vue';
 import { takeCardFresh } from './card-motion';
+import { UiScroll } from '@/components/ui';
 
 type ChoiceOpt = {
   label: string;
@@ -145,6 +146,11 @@ function toggle(v: string) {
         aria-label="筛选选项"
       />
     </div>
+    <UiScroll
+      class="choice-scroll"
+      always
+      :max-height="asCards ? 'min(68vh, 720px)' : 'min(320px, 42vh)'"
+    >
     <div
       class="choice-list"
       :class="asCards ? 'choice-grid' : 'choice-chips'"
@@ -187,6 +193,7 @@ function toggle(v: string) {
       </button>
       <span v-if="!filtered.length" class="choice-empty">无匹配选项</span>
     </div>
+    </UiScroll>
     <p v-if="errorText" class="choice-error" role="alert">{{ errorText }}</p>
   </section>
 </template>
@@ -245,9 +252,6 @@ function toggle(v: string) {
   flex-wrap: wrap;
   gap: 8px;
   padding: 2px 0;
-  max-height: min(320px, 42vh);
-  overflow: auto;
-  scrollbar-width: thin;
 }
 .chip {
   display: inline-flex;
@@ -334,10 +338,7 @@ function toggle(v: string) {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
   gap: 12px;
-  max-height: min(68vh, 720px);
-  overflow: auto;
   padding: 4px 2px 8px;
-  scrollbar-width: thin;
   align-items: stretch;
 }
 @media (min-width: 1100px) {

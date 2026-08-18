@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { SettingsModule } from '../settings/settings.module';
-import { HubModule } from '../hub/hub.module';
 import { AgentA2uiService } from './agent-a2ui.service';
 import { AiController } from './ai.controller';
 import { AiHubClient } from './ai-hub.client';
@@ -10,7 +9,7 @@ import { AssembleService } from './assemble.service';
 import { QuickCreateService } from './quick-create.service';
 
 @Module({
-  imports: [SettingsModule, HubModule],
+  imports: [SettingsModule],
   providers: [
     AiHubClient,
     AiProviderService,

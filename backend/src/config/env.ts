@@ -2,7 +2,7 @@
  * 环境变量约定：
  * - 本地/非 production：基础项可有默认，便于开箱启动
  * - production：JWT / SETTINGS / 管理员口令须显式配置（密钥不再校验长度与强度）
- * - Hub / OSS 地址与 Token 仍不内置，走 env 或设置页
+ * - 对象存储在后端写死 MinIO，不再走 env / 设置页 / 本地磁盘
  */
 
 /** 仅本地开发可用的默认密钥（production 禁用） */
@@ -111,9 +111,21 @@ export function resolveCorsOrigin(): boolean | string | string[] {
   return list;
 }
 
-/** 单容器 / 本地开发默认使用本地磁盘存储，避免强制依赖 MinIO */
+/** 单容器 / 本地开发：未配 MinIO 时用磁盘；配了 Key 或 STORAGE_MODE=minio 则走 MinIO */
 export function isLocalStorageMode(): boolean {
   const raw = readEnv('STORAGE_MODE').toLowerCase();
   if (raw === 's3' || raw === 'minio' || raw === 'oss') return false;
-  return raw === 'local' || raw === 'file' || raw === '' || !readEnv('FILE_OSS_ACCESS_KEY_ID');
+  if (raw === 'local' || raw === 'file') {
+    // 设置页 / 环境变量已配齐 MinIO 时，不再强制落盘
+    return !readEnv('FILE_OSS_ACCESS_KEY_ID');
+  }
+  return !readEnv('FILE_OSS_ACCESS_KEY_ID');
+}
+
+export function minioConfiguredInEnv(): boolean {
+  return Boolean(
+    readEnv('FILE_OSS_ACCESS_KEY_ID') &&
+      readEnv('FILE_OSS_ACCESS_KEY_SECRET') &&
+      (readEnv('FILE_OSS_BUCKET') || readEnv('FILE_OSS_BASE_URL')),
+  );
 }

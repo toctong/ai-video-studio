@@ -105,7 +105,7 @@
               <el-tag size="small" type="info" effect="plain">{{ m.channelTitle || m.channelSlug }}</el-tag>
             </div>
           </div>
-          <el-empty v-if="!localModels.length" description="暂无模型快照，可在系统设置 → 渠道中从 Hub 拉取" />
+          <el-empty v-if="!localModels.length" description="暂无本地模型快照。请在「设置 → 渠道」填写 API Key，并在上方选择默认模型。" />
         </div>
       </section>
     </div>
@@ -261,15 +261,16 @@ onMounted(loadSettings);
 }
 .eyebrow {
   margin: 0 0 8px;
-  color: var(--studio-accent, #3b82f6);
+  color: #3b82f6;
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 .page-hero h1 {
   margin: 0;
-  font-size: 34px;
-  letter-spacing: -0.04em;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 .sub {
   margin: 10px 0 0;
@@ -316,8 +317,8 @@ onMounted(loadSettings);
   white-space: nowrap;
 }
 .status.ok {
-  color: #16a34a;
-  background: rgba(22, 163, 74, 0.12);
+  color: #3b82f6;
+  background: rgba(37, 99, 235, 0.14);
 }
 .form-grid {
   display: grid;

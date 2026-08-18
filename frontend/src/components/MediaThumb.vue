@@ -1,12 +1,6 @@
 <template>
-  <span v-if="url || poster" class="media-thumb" :class="{ video: isVideo }">
-    <img
-      v-if="imageSrc"
-      :src="imageSrc"
-      alt=""
-      loading="lazy"
-      draggable="false"
-    />
+  <span v-if="url || poster" ref="el" class="media-thumb" :class="{ video: isVideo }">
+    <LazyCoverImage v-if="imageSrc" :src="imageSrc" alt="" />
     <video
       v-else-if="videoPreviewSrc"
       class="vid"
@@ -35,10 +29,12 @@
 
 <script setup lang="ts">
 /**
- * 缩略图：图片直接显示；视频优先封面 JPG，无封面时用 video 首帧兼容。
+ * 缩略图：图片懒加载；视频优先封面 JPG，无封面时进入视口才挂 video。
  */
 import { computed } from 'vue';
 import { isVideoUrl } from '@/composables/useMediaPreview';
+import { useInView } from '@/composables/useInView';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
 
 const props = withDefaults(
   defineProps<{
@@ -50,6 +46,7 @@ const props = withDefaults(
   { url: '', posterUrl: '', showPlay: true },
 );
 
+const { el, inView } = useInView({ rootMargin: '160px 0px', once: true });
 const url = computed(() => String(props.url || '').trim());
 const poster = computed(() => String(props.posterUrl || '').trim());
 const isVideo = computed(() => isVideoUrl(url.value));
@@ -63,7 +60,7 @@ const imageSrc = computed(() => {
 });
 
 const videoPreviewSrc = computed(() => {
-  if (!isVideo.value || imageSrc.value) return '';
+  if (!isVideo.value || imageSrc.value || !inView.value) return '';
   const u = url.value;
   if (!u) return '';
   if (/[?#]/.test(u)) return u;
@@ -79,6 +76,7 @@ const videoPreviewSrc = computed(() => {
   position: relative;
   background: var(--studio-inset);
 }
+.media-thumb :deep(.lazy-cover),
 .media-thumb img,
 .media-thumb .vid,
 .media-thumb .ph {

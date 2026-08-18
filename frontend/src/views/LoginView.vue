@@ -9,8 +9,8 @@
             d="M1337,668.5 C1337,1037.455193874239 1037.455193874239,1337 668.5,1337 C523.6725684305388,1337 337,1236 370.50000000000006,1094 C434.03835568300906,824.6732385973953 6.906089672974592e-14,892.6277623047779 0,668.5000000000001 C0,299.5448061257611 299.5448061257609,1.1368683772161603e-13 668.4999999999999,0 C1037.455193874239,0 1337,299.544806125761 1337,668.5Z"
           />
           <linearGradient id="login-grad-1" x1="0.79" y1="0.62" x2="0.21" y2="0.86">
-            <stop offset="0" stop-color="#d1fae5" />
-            <stop offset="1" stop-color="#10b981" />
+            <stop offset="0" stop-color="#dbeafe" />
+            <stop offset="1" stop-color="#2563eb" />
           </linearGradient>
         </defs>
         <use href="#login-wave-1" fill="url(#login-grad-1)" />
@@ -23,8 +23,8 @@
             d="M896,448 C1142.6325445712241,465.5747656464056 695.2579309733121,896 448,896 C200.74206902668806,896 5.684341886080802e-14,695.2579309733121 0,448.0000000000001 C0,200.74206902668806 200.74206902668791,5.684341886080802e-14 447.99999999999994,0 C695.2579309733121,0 475,418 896,448Z"
           />
           <linearGradient id="login-grad-2" x1="0.5" y1="0" x2="0.5" y2="1">
-            <stop offset="0" stop-color="#10b981" />
-            <stop offset="1" stop-color="#d1fae5" />
+            <stop offset="0" stop-color="#2563eb" />
+            <stop offset="1" stop-color="#dbeafe" />
           </linearGradient>
         </defs>
         <use href="#login-wave-2" fill="url(#login-grad-2)" />
@@ -144,8 +144,8 @@ async function onSubmit() {
 <style scoped>
 .login {
   --login-bg: #eef0f6;
-  --login-primary: #10b981;
-  --login-primary-soft: #d1fae5;
+  --login-primary: #2563eb;
+  --login-primary-soft: #dbeafe;
   position: relative;
   isolation: isolate;
   min-height: 100vh;
@@ -158,8 +158,8 @@ async function onSubmit() {
 
 [data-theme='dark'] .login {
   --login-bg: #1a1b2e;
-  --login-primary: #34d399;
-  --login-primary-soft: #12352a;
+  --login-primary: #3b82f6;
+  --login-primary-soft: #0f1f3a;
 }
 
 .bg {

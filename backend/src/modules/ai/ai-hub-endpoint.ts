@@ -99,7 +99,7 @@ export function resolveHubEndpointUrl(opts: {
     .trim()
     .replace(/\/+$/, '');
   if (!base) {
-    throw new BadRequestException('Hub 渠道缺少 baseUrlHint，请重新从 Hub 拉取渠道');
+    throw new BadRequestException('渠道缺少 Base URL，请在系统设置填写本地渠道地址');
   }
 
   if (call.startsWith('/')) {

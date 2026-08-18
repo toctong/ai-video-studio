@@ -28,7 +28,7 @@
         @click="open(p.id)"
       >
         <div class="thumb" :class="{ empty: !p.coverUrl }">
-          <img v-if="p.coverUrl" :src="p.coverUrl" :alt="p.title" loading="lazy" />
+          <LazyCoverImage v-if="p.coverUrl" :src="p.coverUrl" :alt="p.title" />
           <div class="card-ops" @click.stop>
             <button type="button" title="重命名" :disabled="busyId === p.id" @click="renameBook(p)">
               <UiIcon name="pencil" :size="16" />
@@ -74,6 +74,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/api';
 import ProjectCreateDialog from '@/components/ProjectCreateDialog.vue';
 import UiIcon from '@/components/icons/UiIcon.vue';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
 
 type ProjectRow = {
   id: string;
@@ -361,6 +362,7 @@ watch(
   background: var(--studio-inset-2);
   box-shadow: inset 0 0 0 1px var(--studio-glass);
 }
+.thumb :deep(.lazy-cover),
 .thumb img {
   width: 100%;
   height: 100%;

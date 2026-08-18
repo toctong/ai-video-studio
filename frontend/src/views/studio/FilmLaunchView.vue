@@ -27,9 +27,13 @@ const statusText = ref('正在进入制作流水线…');
 let launching = false;
 
 function goPipeline(id: string) {
+  const from = String(route.query.from || '').trim();
   return router.replace({
     path: `/films/${id}`,
-    query: { step: '1' },
+    query: {
+      step: '1',
+      ...(from === 'article' ? { from: 'article' } : {}),
+    },
   });
 }
 
@@ -84,7 +88,7 @@ onMounted(() => {
 });
 
 watch(
-  () => [route.query.new, route.query.mode],
+  () => [route.query.new, route.query.mode, route.query.from],
   () => {
     if (route.path === '/films') void launch();
   },
@@ -120,8 +124,8 @@ watch(
   padding: 0 18px;
   border: 0;
   border-radius: 999px;
-  background: #10b981;
-  color: #052e1c;
+  background: #2563eb;
+  color: #ffffff;
   font: inherit;
   font-size: 13px;
   font-weight: 650;

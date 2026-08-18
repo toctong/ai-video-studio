@@ -45,8 +45,8 @@
       </button>
     </div>
 
+    <UiScroll v-show="mode === 'edit'" ref="editScrollRef" class="txt-editor-scroll" always>
     <textarea
-      v-show="mode === 'edit'"
       ref="taRef"
       class="txt-editor"
       :value="modelValue"
@@ -55,13 +55,16 @@
       spellcheck="false"
       @input="onInput"
     />
+    </UiScroll>
 
-    <div v-show="mode === 'read'" ref="readerRef" class="txt-reader">
+    <UiScroll v-show="mode === 'read'" ref="readerScrollRef" class="txt-reader-scroll" always>
+    <div class="txt-reader">
       <article v-if="paragraphs.length" class="txt-article">
         <p v-for="(p, i) in paragraphs" :key="i">{{ p }}</p>
       </article>
       <div v-else class="txt-empty">暂无正文</div>
     </div>
+    </UiScroll>
   </div>
 </template>
 
@@ -70,6 +73,7 @@ import { computed, nextTick, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { DocumentCopy, Notebook } from '@element-plus/icons-vue';
 import { copyText } from '@/utils/clipboard';
+import { UiScroll } from '@/components/ui';
 
 const props = withDefaults(
   defineProps<{
@@ -95,7 +99,8 @@ const emit = defineEmits<{
 
 const mode = ref<'edit' | 'read'>('read');
 const taRef = ref<HTMLTextAreaElement | null>(null);
-const readerRef = ref<HTMLElement | null>(null);
+const editScrollRef = ref<{ wrapEl: () => HTMLElement | undefined; setScrollTop: (n: number) => void } | null>(null);
+const readerScrollRef = ref<{ wrapEl: () => HTMLElement | undefined; setScrollTop: (n: number) => void } | null>(null);
 const copying = ref(false);
 
 const wordCount = computed(() => String(props.modelValue || '').length);
@@ -118,9 +123,31 @@ watch(
   { immediate: true },
 );
 
+watch(mode, async () => {
+  await nextTick();
+  syncEditorHeight();
+});
+
+function syncEditorHeight() {
+  const ta = taRef.value;
+  if (!ta) return;
+  ta.style.height = '0px';
+  const minH = ta.parentElement?.clientHeight ?? 0;
+  ta.style.height = `${Math.max(ta.scrollHeight, minH)}px`;
+}
+
 function onInput(e: Event) {
   emit('update:modelValue', (e.target as HTMLTextAreaElement).value);
+  syncEditorHeight();
 }
+
+watch(
+  () => props.modelValue,
+  async () => {
+    await nextTick();
+    syncEditorHeight();
+  },
+);
 
 async function copyBody() {
   const text = String(props.modelValue || '');
@@ -137,10 +164,16 @@ async function copyBody() {
 
 async function scrollToEnd() {
   await nextTick();
-  if (mode.value === 'edit' && taRef.value) {
-    taRef.value.scrollTop = taRef.value.scrollHeight;
-  } else if (readerRef.value) {
-    readerRef.value.scrollTop = readerRef.value.scrollHeight;
+  syncEditorHeight();
+  await nextTick();
+  if (mode.value === 'edit') {
+    const wrap = editScrollRef.value?.wrapEl?.();
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    else editScrollRef.value?.setScrollTop(1e9);
+  } else {
+    const wrap = readerScrollRef.value?.wrapEl?.();
+    if (wrap) wrap.scrollTop = wrap.scrollHeight;
+    else readerScrollRef.value?.setScrollTop(1e9);
   }
 }
 
@@ -270,9 +303,15 @@ defineExpose({ scrollToEnd, focus: () => taRef.value?.focus() });
   color: var(--accent-2, var(--accent));
 }
 
-.txt-editor {
+.txt-editor-scroll,
+.txt-reader-scroll {
   flex: 1;
   min-height: 0;
+}
+
+.txt-editor {
+  flex: 1;
+  min-height: 100%;
   width: 100%;
   border: none;
   outline: none;
@@ -287,9 +326,7 @@ defineExpose({ scrollToEnd, focus: () => taRef.value?.focus() });
   tab-size: 2;
   white-space: pre-wrap;
   word-break: break-word;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) transparent;
+  overflow: hidden;
 }
 
 .txt-editor::placeholder {
@@ -302,11 +339,7 @@ defineExpose({ scrollToEnd, focus: () => taRef.value?.focus() });
 }
 
 .txt-reader {
-  flex: 1;
   min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-thumb) transparent;
 }
 
 .txt-article {

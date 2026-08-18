@@ -3,19 +3,12 @@
     <header class="dir-head">
       <h3 v-if="mode !== 'local-models'" class="dir-title">{{ panelTitle }}</h3>
       <button
-        v-if="isHubMode || mode === 'local-channels' || mode === 'local-models'"
+        v-if="mode === 'local-channels' || mode === 'local-models'"
         type="button"
-        class="count-pill"
-        :class="{ static: false }"
-        title="重新同步 Hub 目录并刷新本端快照"
-        :disabled="syncing"
-        @click="onSync"
+        class="count-pill static"
+        disabled
       >
-        <template v-if="mode === 'local-channels' || mode === 'local-models'">
-          已落地 {{ localCountLabel }}
-        </template>
-        <template v-else>已加载 {{ hubCountLabel }}</template>
-        <UiIcon name="refresh" :size="12" :class="{ spin: syncing }" />
+        已落地 {{ localCountLabel }}
       </button>
     </header>
 
@@ -79,39 +72,21 @@
               <strong>{{ ch.title || ch.slug }}</strong>
             </div>
             <div class="top-actions">
-              <template v-if="mode === 'channels'">
-                <button
-                  type="button"
-                  class="icon-btn"
-                  :class="{ on: isPulled(ch.slug) }"
-                  :title="isPulled(ch.slug) ? '已拉取（可再点更新快照）' : '拉取'"
-                  :disabled="pullingSlug === ch.slug"
-                  @click="pullChannel(ch)"
-                >
-                  <UiIcon
-                    :name="isPulled(ch.slug) ? 'check' : 'cloud-download'"
-                    :size="15"
-                    :class="{ spin: pullingSlug === ch.slug }"
-                  />
-                </button>
-              </template>
-              <template v-else>
-                <span class="key-pill" :class="{ on: channelHasKey(ch.slug) }">
-                  {{ channelHasKey(ch.slug) ? '已配 Key' : '待配 Key' }}
-                </span>
-                <button type="button" class="linkish" @click="toggleExpand(ch.slug)">
-                  {{ expanded === ch.slug ? '收起' : '配置' }}
-                </button>
-                <button
-                  type="button"
-                  class="icon-btn"
-                  title="移除本端渠道"
-                  :disabled="removingSlug === ch.slug"
-                  @click="removeChannel(ch.slug)"
-                >
-                  <UiIcon name="trash" :size="14" />
-                </button>
-              </template>
+              <span class="key-pill" :class="{ on: channelHasKey(ch.slug) }">
+                {{ channelHasKey(ch.slug) ? '已配 Key' : '待配 Key' }}
+              </span>
+              <button type="button" class="linkish" @click="toggleExpand(ch.slug)">
+                {{ expanded === ch.slug ? '收起' : '配置' }}
+              </button>
+              <button
+                type="button"
+                class="icon-btn"
+                title="移除本端渠道"
+                :disabled="removingSlug === ch.slug"
+                @click="removeChannel(ch.slug)"
+              >
+                <UiIcon name="trash" :size="14" />
+              </button>
             </div>
           </header>
 
@@ -331,13 +306,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/api';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import {
-  fetchChannelsCatalog,
-  fetchModelsCatalog,
-  pullHubChannelToLocal,
-  refreshLocalModelsFromHub,
   removeLocalHubChannel,
-  resolveHubAssetUrl,
-  syncHubCatalog,
   type HubChannelDto,
   type HubModelDto,
 } from '@/api/hub-catalog';
@@ -369,14 +338,9 @@ type Draft = {
   proxyUrl: string;
 };
 
-const channels = ref<HubChannelDto[]>([]);
-const models = ref<HubModelDto[]>([]);
-const hubOrigin = ref('');
 const qName = ref('');
 const qExtra = ref('');
 const expanded = ref('');
-const syncing = ref(false);
-const pullingSlug = ref('');
 const removingSlug = ref('');
 const savingId = ref('');
 const testingId = ref('');
@@ -386,9 +350,6 @@ const drafts = reactive<Record<string, Draft>>({});
 const results = reactive<Record<string, { ok: boolean; message: string }>>({});
 const logoBroken = reactive<Record<string, boolean>>({});
 
-const isHubMode = computed(
-  () => props.mode === 'channels' || props.mode === 'models',
-);
 const isChannelMode = computed(
   () => props.mode === 'channels' || props.mode === 'local-channels',
 );
@@ -397,10 +358,8 @@ const isModelMode = computed(
 );
 
 const panelTitle = computed(() => {
-  if (props.mode === 'channels') return 'Hub 渠道';
-  if (props.mode === 'local-channels') return '本地渠道';
   if (props.mode === 'local-models') return '模型';
-  return 'Hub 模型';
+  return '本地渠道';
 });
 
 const modelTypeTabs = [
@@ -459,23 +418,6 @@ const localModelsList = computed<LocalModelView[]>(() => {
   return Array.isArray(list) ? (list as LocalModelView[]) : [];
 });
 
-const filteredHubChannels = computed(() => {
-  const n = qName.value.trim().toLowerCase();
-  const e = qExtra.value.trim().toLowerCase();
-  return channels.value.filter((ch) => {
-    if (n && !`${ch.title} ${ch.slug}`.toLowerCase().includes(n)) return false;
-    if (
-      e &&
-      !`${ch.endpointType || ''} ${ch.group || ''} ${ch.category || ''} ${ch.apiStyle || ''}`
-        .toLowerCase()
-        .includes(e)
-    ) {
-      return false;
-    }
-    return true;
-  });
-});
-
 const filteredLocalChannels = computed(() => {
   const n = qName.value.trim().toLowerCase();
   const e = qExtra.value.trim().toLowerCase();
@@ -493,22 +435,9 @@ const filteredLocalChannels = computed(() => {
   });
 });
 
-const displayChannels = computed(() =>
-  props.mode === 'local-channels' ? filteredLocalChannels.value : filteredHubChannels.value,
-);
+const displayChannels = computed(() => filteredLocalChannels.value);
 
-const pulledSlugs = computed(() => {
-  return new Set(Object.keys(localChannelMap.value).filter(Boolean));
-});
-
-const pulledModels = computed(() => {
-  const pulled = pulledSlugs.value;
-  return models.value.filter((m) => m.channelSlug && pulled.has(m.channelSlug));
-});
-
-const sourceModels = computed(() =>
-  props.mode === 'local-models' ? localModelsList.value : pulledModels.value,
-);
+const sourceModels = computed(() => localModelsList.value);
 
 const typeCounts = computed(() => {
   const list = sourceModels.value;
@@ -539,17 +468,12 @@ const filteredModels = computed(() => {
     return true;
   });
   if (props.mode !== 'local-models') return list;
-  // 默认模型排到最前
   return [...list].sort((a, b) => {
     const da = isDefaultModel(a) ? 0 : 1;
     const db = isDefaultModel(b) ? 0 : 1;
     return da - db;
   });
 });
-
-const hubCountLabel = computed(() =>
-  props.mode === 'channels' ? channels.value.length : filteredModels.value.length,
-);
 
 const localCountLabel = computed(() =>
   props.mode === 'local-channels'
@@ -582,21 +506,12 @@ watch(
 
 watch(
   () => props.mode,
-  async (mode) => {
+  async () => {
     qName.value = '';
     qExtra.value = '';
     expanded.value = '';
     modelType.value = 'all';
     hydrateDrafts();
-    // 进入本地模型时，用最新 Hub 缓存刷新本端快照
-    if (mode === 'local-models') {
-      try {
-        const data = await refreshLocalModelsFromHub();
-        if (data?.settings) emit('saved', data.settings);
-      } catch {
-        /* ignore */
-      }
-    }
   },
 );
 
@@ -608,16 +523,10 @@ function ensureDraft(slug: string, hint = '') {
 
 function hydrateDrafts() {
   const stored = localChannelMap.value;
-  const slugs =
-    props.mode === 'local-channels'
-      ? Object.keys(stored)
-      : channels.value.map((c) => c.slug);
+  const slugs = Object.keys(stored);
   for (const slug of slugs) {
     const c = stored[slug] || {};
-    const hint =
-      props.mode === 'local-channels'
-        ? String(c.baseUrl || '')
-        : channels.value.find((x) => x.slug === slug)?.baseUrlHint || '';
+    const hint = String(c.baseUrl || '');
     ensureDraft(slug, hint);
     drafts[slug].baseUrl = String(c.baseUrl || hint || '');
     drafts[slug].apiKey = '';
@@ -631,33 +540,10 @@ function channelHasKey(slug: string) {
   return !!localChannelMap.value?.[slug]?.hasKey || !!drafts[slug]?.hasKey;
 }
 
-function isPulled(slug: string) {
-  return pulledSlugs.value.has(slug);
-}
-
-async function pullChannel(ch: HubChannelDto) {
-  if (!ch?.slug) return;
-  const wasPulled = isPulled(ch.slug);
-  pullingSlug.value = ch.slug;
-  try {
-    const data = await pullHubChannelToLocal(ch.slug);
-    emit('saved', data);
-    ElMessage.success(
-      wasPulled
-        ? '已更新本端快照'
-        : '已拉取到本端，可在「本地渠道 / 本地模型」中管理',
-    );
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || e?.message || '拉取失败');
-  } finally {
-    pullingSlug.value = '';
-  }
-}
-
 async function removeChannel(slug: string) {
   try {
     await ElMessageBox.confirm(
-      `移除本端渠道「${slug}」及其模型快照？不影响 Hub 目录。`,
+      `移除本端渠道「${slug}」及其模型快照？`,
       '移除本地渠道',
       { type: 'warning', confirmButtonText: '移除', cancelButtonText: '取消' },
     );
@@ -679,14 +565,17 @@ async function removeChannel(slug: string) {
 
 function channelLogo(ch: HubChannelDto) {
   if (logoBroken[ch.slug]) return '';
-  return resolveHubAssetUrl(hubOrigin.value, ch.coverUrl);
+  const raw = String(ch.coverUrl || '').trim();
+  if (!raw || raw.startsWith('/')) return '';
+  return raw;
 }
 
 function modelLogo(m: HubModelDto) {
   const key = `${m.channelSlug}:${m.modelId}`;
   if (logoBroken[key]) return '';
-  // 模型卡优先用自身 coverUrl，没有再回落渠道 logo
-  return resolveHubAssetUrl(hubOrigin.value, m.coverUrl || m.channelLogo);
+  const raw = String(m.coverUrl || m.channelLogo || '').trim();
+  if (!raw || raw.startsWith('/')) return '';
+  return raw;
 }
 
 function onLogoError(key: string) {
@@ -796,78 +685,9 @@ async function copyId(id: string) {
   }
 }
 
-async function loadHubOrigin() {
-  try {
-    const { data } = await api.get('/hub/config');
-    hubOrigin.value = String(data?.baseUrl || data?.defaultBaseUrl || '').replace(/\/+$/, '');
-  } catch {
-    hubOrigin.value = '';
-  }
-}
-
-async function loadCatalog() {
-  await loadHubOrigin();
-  if (isHubMode.value) {
-    const [ch, mo] = await Promise.all([fetchChannelsCatalog(), fetchModelsCatalog()]);
-    channels.value = ch.items;
-    models.value = mo.items;
-    Object.keys(logoBroken).forEach((k) => delete logoBroken[k]);
-  }
+onMounted(() => {
   hydrateDrafts();
-}
-
-async function refreshLocalIfNeeded() {
-  if (props.mode !== 'local-models') return;
-  try {
-    const data = await refreshLocalModelsFromHub();
-    if (data?.settings) emit('saved', data.settings);
-  } catch {
-    /* ignore */
-  }
-}
-
-onMounted(async () => {
-  await loadCatalog();
-  await refreshLocalIfNeeded();
 });
-
-async function onSync() {
-  syncing.value = true;
-  try {
-    const res = await syncHubCatalog();
-    if (res?.ok) {
-      await loadCatalog();
-      if (res.settings) {
-        emit('saved', res.settings);
-      } else {
-        // 兜底：再显式刷新本地模型快照
-        try {
-          const data = await refreshLocalModelsFromHub();
-          if (data?.settings) emit('saved', data.settings);
-          else {
-            const { data: settings } = await api.get('/settings');
-            emit('saved', settings);
-          }
-        } catch {
-          const { data } = await api.get('/settings');
-          emit('saved', data);
-        }
-      }
-      const n = Number(res.localModelsRefreshed) || 0;
-      const pruned = Number((res as any).localChannelsPruned) || 0;
-      const parts = ['已同步 Hub 目录'];
-      if (n > 0) parts.push(`刷新 ${n} 个本地渠道`);
-      if (pruned > 0) parts.push(`移除 ${pruned} 个已下架渠道`);
-      ElMessage.success(parts.join('，'));
-    } else {
-      ElMessage.warning(res?.message || '同步未完成');
-    }
-  } catch (e: any) {
-    ElMessage.error(e?.response?.data?.message || e?.message || '同步失败');
-  } finally {
-    syncing.value = false;
-  }
-}
 
 async function saveHub(slug: string) {
   ensureDraft(slug);
@@ -1094,7 +914,7 @@ async function testHub(slug: string) {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
 }
 .hub-card.open {
-  border-color: color-mix(in srgb, #34d399 40%, var(--line));
+  border-color: color-mix(in srgb, #3b82f6 40%, var(--line));
 }
 .card-top {
   display: flex;
@@ -1174,8 +994,8 @@ async function testHub(slug: string) {
 }
 .key-pill.on {
   color: #86efac;
-  border-color: color-mix(in srgb, #34d399 35%, var(--line));
-  background: color-mix(in srgb, #10b981 12%, transparent);
+  border-color: color-mix(in srgb, #3b82f6 35%, var(--line));
+  background: color-mix(in srgb, #2563eb 12%, transparent);
 }
 .icon-btn {
   display: inline-flex;
@@ -1278,11 +1098,11 @@ async function testHub(slug: string) {
   color: #737373;
 }
 .val.ok {
-  color: #4ade80;
+  color: #60a5fa;
   font-weight: 650;
 }
 .val.url {
-  color: #4ade80;
+  color: #60a5fa;
   text-decoration: none;
   font-weight: 650;
   white-space: nowrap;
@@ -1323,7 +1143,7 @@ async function testHub(slug: string) {
 }
 .chip.green {
   color: #86efac;
-  background: color-mix(in srgb, #10b981 16%, transparent);
+  background: color-mix(in srgb, #2563eb 16%, transparent);
 }
 .mod-tags {
   display: flex;

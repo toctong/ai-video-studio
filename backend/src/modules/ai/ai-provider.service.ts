@@ -20,8 +20,7 @@ import {
   isGptImageModel,
   isVolcengineImageModel,
 } from '@ai-video-studio/shared';
-import { SettingsService, type SystemSettings } from '../settings/settings.service';
-import { HubService, type HubModelItem } from '../hub/hub.service';
+import { SettingsService, type LocalModelRecord, type SystemSettings } from '../settings/settings.service';
 import {
   compressVideoPromptForLimit,
   normalizePromptText,
@@ -54,7 +53,6 @@ const GPT_REF_MAX_COUNT = 3;
 export class AiProviderService {
   constructor(
     private readonly settings: SettingsService,
-    private readonly hub: HubService,
     private readonly hubClient: AiHubClient,
   ) {}
 
@@ -82,13 +80,13 @@ export class AiProviderService {
     return this.hubClient.testProvider(vendorRaw, capability, model);
   }
 
-  /** 测试 Hub 渠道凭证（OpenAI 兼容 / ark） */
+  /** 测试本地渠道凭证（OpenAI 兼容 / ark） */
   async testChannel(slug: string, model?: string) {
     const key = String(slug || '').trim();
     if (!key) return { ok: false, message: '缺少渠道 slug' };
     const s = await this.settings.getInternal();
-    const channel = await this.hub.findHubChannel(key);
-    const hintBase = String(channel?.baseUrlHint || '').replace(/\/$/, '');
+    const channel = await this.settings.findLocalChannel(key);
+    const hintBase = String(channel?.baseUrl || channel?.hubBaseUrlHint || '').replace(/\/$/, '');
     const cred = this.settings.channelCredential(key, s, hintBase);
     if (!cred.apiKey) return { ok: false, message: '未配置该渠道 API Key', slug: key };
 
@@ -103,8 +101,7 @@ export class AiProviderService {
 
     let useModel = String(model || '').trim();
     if (!useModel) {
-      const catalog = await this.hub.getCachedModels();
-      const first = (catalog?.items || []).find(
+      const first = (s.localModels || []).find(
         (m) =>
           String(m.channelSlug || '') === key &&
           (m.modalities || []).includes('text') &&
@@ -114,9 +111,8 @@ export class AiProviderService {
     }
 
     try {
-      const hubModel =
-        (await this.hub.findHubModel(useModel)) ||
-        ({
+      const hubModel: LocalModelRecord =
+        (await this.settings.findLocalModel(useModel)) || {
           modelId: useModel,
           channelSlug: key,
           apiStyle: style,
@@ -125,7 +121,7 @@ export class AiProviderService {
           paths: channel?.paths as Record<string, string> | undefined,
           callPath: undefined,
           endpointUrlHint: undefined,
-        } as HubModelItem);
+        };
       await this.postHubChat(hubModel, cred, [
         { role: 'user', content: 'ping' },
       ], { maxTokens: 8 });
@@ -144,7 +140,7 @@ export class AiProviderService {
   }
 
   private resolveHubChatEndpoint(
-    model: HubModelItem,
+    model: LocalModelRecord,
     credBaseUrl: string,
   ): { baseURL: string; path: string } {
     return resolveHubEndpointUrl({
@@ -159,7 +155,7 @@ export class AiProviderService {
   }
 
   private async postHubChat(
-    model: HubModelItem,
+    model: LocalModelRecord,
     cred: { baseUrl: string; apiKey: string; proxyUrl?: string },
     messages: Array<{ role: string; content: string }>,
     opts?: { temperature?: number; maxTokens?: number; signal?: AbortSignal; timeoutMs?: number },
@@ -202,7 +198,7 @@ export class AiProviderService {
     const id = String(requestedModel || '').trim();
     if (!id) return null;
 
-    let hubModel = await this.hub.findHubModel(id);
+    let hubModel: LocalModelRecord | null = await this.settings.findLocalModel(id);
     if (!hubModel) {
       const local = (s.localModels || []).find((m) => String(m.modelId || '') === id);
       if (local?.channelSlug) {
@@ -227,12 +223,12 @@ export class AiProviderService {
     const style = String(hubModel.apiStyle || 'openai').toLowerCase();
     if (style !== 'openai' && style !== 'ark') return null;
 
-    const channel = await this.hub.findHubChannel(hubModel.channelSlug);
+    const channel = await this.settings.findLocalChannel(hubModel.channelSlug);
     const localChan = s.channelCredentials?.[hubModel.channelSlug];
     const cred = this.settings.channelCredential(
       hubModel.channelSlug,
       s,
-      String(hubModel.baseUrlHint || channel?.baseUrlHint || localChan?.baseUrl || ''),
+      String(hubModel.baseUrlHint || channel?.baseUrl || channel?.hubBaseUrlHint || localChan?.baseUrl || ''),
     );
     if (!cred.apiKey) return null;
     return { model: hubModel, cred };

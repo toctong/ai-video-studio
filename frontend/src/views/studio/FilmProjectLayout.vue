@@ -10,7 +10,8 @@
             {{ draft.name || '未命名剧集' }}
           </strong>
         </div>
-        <nav class="step-list" aria-label="制作步骤">
+        <UiScroll class="step-list-scroll" always>
+          <nav class="step-list" aria-label="制作步骤">
           <button
             v-for="step in steps"
             :key="step.index"
@@ -31,7 +32,8 @@
               <strong>{{ step.label }}</strong>
             </span>
           </button>
-        </nav>
+          </nav>
+        </UiScroll>
         <button type="button" class="share-rail-btn" @click="onShareCreation">
           <UiIcon name="share" :size="16" />
           <span>分享创作</span>
@@ -84,6 +86,7 @@
         </header>
 
       <section v-loading="loading" class="step-content">
+        <UiScroll class="step-scroll" always height="100%">
         <!-- ① 剧本编辑：纳米风格 AI帮写 / 上传 + 全幅编辑器 -->
         <div v-if="activeStep === 1" class="step-pane flat script-step" :class="{ 'ai-open': scriptUiMode === 'ai' }">
           <aside v-if="scriptUiMode === 'ai'" class="ai-assist">
@@ -96,6 +99,7 @@
               <button type="button" class="ai-close" title="关闭" @click="enterWriteMode">×</button>
             </header>
 
+            <UiScroll class="ai-assist-scroll" always>
             <div class="ai-assist-body">
               <template v-if="!aiMessages.length">
                 <div class="ai-empty">
@@ -171,6 +175,7 @@
                 </div>
               </div>
             </div>
+            </UiScroll>
           </aside>
 
           <div class="script-canvas">
@@ -255,7 +260,7 @@
               <textarea
                 v-model="draft.script"
                 class="script-editor"
-                placeholder=""
+                :placeholder="scriptPlaceholder"
                 @input="onScriptInput"
               />
               <button
@@ -264,8 +269,8 @@
                 class="paste-fab"
                 @click="pasteScript"
               >
-                <strong>粘贴剧本</strong>
-                <em>已有内容可直接粘贴</em>
+                <strong>{{ isArticleEntry ? '粘贴文章' : '粘贴剧本' }}</strong>
+                <em>{{ isArticleEntry ? '输入文章或一句话，生成完整短片' : '已有内容可直接粘贴' }}</em>
               </button>
             </div>
             <p v-if="adaptStatus" class="status-line">{{ adaptStatus }}</p>
@@ -311,6 +316,7 @@
                 type="button"
                 class="mode-card"
                 :class="{ on: draft.videoGenMode === m.id, hover: modeHoverId === m.id }"
+                :ref="(el) => bindModeCard(m.id, el)"
                 @click="setVideoMode(m.id)"
                 @mouseenter="onModeEnter(m.id)"
                 @mouseleave="onModeLeave"
@@ -323,21 +329,33 @@
                   </div>
                   <em>{{ m.desc }}</em>
                 </div>
-                <div class="mode-media" aria-hidden="true">
-                  <img class="mode-cover" :src="m.cover" alt="" draggable="false" loading="lazy" />
+              </button>
+            </div>
+            <Teleport to="body">
+              <div
+                v-if="modeHoverPop"
+                class="mode-hover-pop"
+                :style="modeHoverPop.style"
+                @mouseenter="onModePopEnter"
+                @mouseleave="onModeLeave"
+              >
+                <div v-if="modeHoverPop.cover || modeHoverPop.video" class="mode-hover-media" aria-hidden="true">
+                  <img v-if="modeHoverPop.cover" class="mode-cover" :src="modeHoverPop.cover" alt="" draggable="false" />
                   <video
-                    v-if="m.video"
-                    class="mode-video"
-                    :src="m.video"
+                    v-if="modeHoverPop.video"
+                    ref="modeHoverVideoEl"
+                    class="mode-video on"
+                    :src="modeHoverPop.video"
                     muted
                     loop
                     playsinline
+                    autoplay
                     preload="metadata"
-                    :ref="(el) => bindModeVideo(m.id, el)"
                   />
                 </div>
-              </button>
-            </div>
+                <p>{{ modeHoverPop.detail }}</p>
+              </div>
+            </Teleport>
           </div>
 
           <div class="section-block">
@@ -349,10 +367,11 @@
                 type="button"
                 class="style-card"
                 :class="{ on: selectedStyleId === s.id || draft.style.sub === s.label }"
-                @click="applyHubStyle(s)"
+                @click="applyStyle(s)"
               >
-                <span class="style-cover" :style="styleCoverStyle(s)">
-                  <template v-if="!styleCoverUrl(s)">{{ (s.label || '?').slice(0, 2) }}</template>
+                <span class="style-cover">
+                  <LazyCoverImage v-if="styleCoverUrl(s)" class="style-cover-img" :src="styleCoverUrl(s)" :alt="s.label" />
+                  <template v-else>{{ (s.label || '?').slice(0, 2) }}</template>
                   <span v-if="selectedStyleId === s.id || draft.style.sub === s.label" class="style-check">
                     <UiIcon name="check" :size="12" />
                   </span>
@@ -366,8 +385,8 @@
               </button>
             </div>
 
-            <p v-if="!stylesLoading && !hubStyles.length" class="hint-line">
-              暂无 Hub 风格库。请到设置同步 Hub（libraries/catalog · category=style）。
+            <p v-if="!styleList.length" class="hint-line">
+              暂无画风。请到「资产管理 → 风格库」上传，或在补充说明里直接描述风格。
             </p>
 
             <label class="style-brief-field">
@@ -424,6 +443,14 @@
           </div>
           <div class="asset-grid">
             <article v-for="item in filteredSceneItems" :key="item.id" class="asset-tile">
+              <div class="asset-face">
+                <img v-if="item.imageUrl" :src="item.imageUrl" alt="" />
+                <span v-else class="face-placeholder">{{ kindLabel(item.kind) }}</span>
+                <div class="asset-hover">
+                  <button type="button" @click.stop="openAssetEditor(item.id)">编辑</button>
+                  <button type="button" @click.stop="replaceAssetImage(item)">替换</button>
+                </div>
+              </div>
               <div class="asset-tile-head">
                 <span class="kind-ico" :class="item.kind" aria-hidden="true">
                   <UiIcon :name="item.kind === 'character' ? 'user' : 'image'" :size="14" />
@@ -433,14 +460,6 @@
                   ···
                 </button>
               </div>
-              <div class="asset-face">
-                <img v-if="item.imageUrl" :src="item.imageUrl" alt="" />
-                <span v-else class="face-placeholder">{{ kindLabel(item.kind) }}</span>
-                <div class="asset-hover">
-                  <button type="button" @click.stop="openAssetEditor(item.id)">编辑</button>
-                  <button type="button" @click.stop="replaceAssetImage(item)">替换</button>
-                </div>
-              </div>
             </article>
           </div>
           <p v-if="!filteredSceneItems.length" class="empty-inline">
@@ -448,13 +467,6 @@
               kindLabel(assetKindFilter)
             }}」。
           </p>
-          <input
-            ref="assetReplaceInput"
-            type="file"
-            accept="image/*"
-            class="sr-only"
-            @change="onAssetReplaceFile"
-          />
         </div>
 
         <!-- ④ 分镜脚本 -->
@@ -462,7 +474,7 @@
           <div class="content-toolbar">
             <span class="stat">
               共 {{ draft.storyboard.length }} 个分镜，已完成
-              {{ draft.storyboard.filter((s) => String(s.description || '').trim()).length }} 个
+              {{ storyboardDoneCount }} 个
             </span>
             <div class="toolbar-right">
               <button
@@ -483,17 +495,13 @@
               class="shot-slot-wrap"
             >
               <article
-                class="shot-card"
-                :class="{
-                  empty: !shotBodyText(shot),
-                  ready: !!String(shot.description || '').trim(),
-                  on: shotMenuId === shot.id,
-                }"
+                class="shot-card visual"
+                :class="{ on: shotMenuId === shot.id }"
+                :style="storyboardAspectStyle"
                 @click="openShotEditor(shot.id)"
               >
                 <div class="shot-card-head">
                   <span class="shot-no">{{ String(shot.index).padStart(2, '0') }}</span>
-                  <span class="shot-status" :class="shotStatusClass(shot)">{{ shotStatusLabel(shot) }}</span>
                   <button
                     type="button"
                     class="more"
@@ -503,11 +511,12 @@
                     ···
                   </button>
                 </div>
-                <p v-if="shotBodyText(shot)" class="shot-text">{{ shotBodyText(shot) }}</p>
-                <div v-else class="shot-empty-body">
-                  <UiIcon name="pencil" :size="26" />
-                  <span>点击编辑分镜</span>
+                <div class="shot-face">
+                  <img v-if="shot.imageUrl" :src="shot.imageUrl" alt="" />
+                  <p v-else-if="shotCardHint(shot)" class="shot-face-hint">{{ shotCardHint(shot) }}</p>
+                  <span v-else class="face-placeholder">点击编辑分镜</span>
                 </div>
+                <span v-if="shot.durationSec" class="shot-dur">{{ shot.durationSec }}s</span>
               </article>
               <button
                 v-if="idx < draft.storyboard.length - 1"
@@ -519,7 +528,12 @@
                 <UiIcon name="plus" :size="14" />
               </button>
             </div>
-            <button type="button" class="shot-card add" @click="addStoryboardShot">
+            <button
+              type="button"
+              class="shot-card add visual"
+              :style="storyboardAspectStyle"
+              @click="addStoryboardShot"
+            >
               <span class="add-plus">+</span>
               <span>添加分镜</span>
             </button>
@@ -668,6 +682,7 @@
             @edit-shot="openVideoEditor"
           />
         </div>
+        </UiScroll>
       </section>
       </div>
     </div>
@@ -679,6 +694,7 @@
             <strong>绑定源小说</strong>
             <button type="button" class="x" @click="pickNovelOpen = false">×</button>
           </header>
+          <UiScroll class="novel-scroll" always>
           <div v-loading="pickLoading" class="novel-list">
             <button
               v-for="b in novelBooks"
@@ -692,6 +708,7 @@
             </button>
             <p v-if="!pickLoading && !novelBooks.length" class="empty-inline">暂无小说</p>
           </div>
+          </UiScroll>
         </div>
       </div>
     </Teleport>
@@ -715,6 +732,7 @@
               {{ f.label }}
             </button>
           </div>
+          <UiScroll class="style-modal-scroll" always>
           <div class="style-modal-grid">
             <button
               v-for="s in filteredModalStyles"
@@ -724,13 +742,15 @@
               :class="{ on: pendingStyleId === s.id }"
               @click="pendingStyleId = s.id"
             >
-              <span class="style-cover" :style="styleCoverStyle(s)">
-                <template v-if="!styleCoverUrl(s)">{{ (s.label || '?').slice(0, 2) }}</template>
+              <span class="style-cover">
+                <LazyCoverImage v-if="styleCoverUrl(s)" class="style-cover-img" :src="styleCoverUrl(s)" :alt="s.label" />
+                <template v-else>{{ (s.label || '?').slice(0, 2) }}</template>
               </span>
               <span class="style-caption">{{ s.label }}</span>
             </button>
             <p v-if="!filteredModalStyles.length" class="empty-inline">该分类暂无风格</p>
           </div>
+          </UiScroll>
           <footer class="style-modal-foot">
             <button type="button" class="modal-btn" @click="cancelStyleModal">取消</button>
             <button type="button" class="modal-btn confirm" @click="confirmStyleModal">确认</button>
@@ -750,6 +770,10 @@
             <strong class="ae-title">{{ editingAsset.name || '未命名' }}</strong>
             <em class="ae-count">共 {{ draft.sceneItems.length }} 个{{ kindLabel(editingAsset.kind) }}</em>
             <div class="ae-top-actions">
+              <button type="button" class="pill-btn" @click="replaceAssetImage(editingAsset)">
+                <UiIcon name="upload" :size="14" />
+                上传
+              </button>
               <button type="button" class="pill-btn" @click="removeEditingAsset">删除</button>
               <button type="button" class="pill-btn primary" @click="saveAssetEditor">完成</button>
             </div>
@@ -757,6 +781,7 @@
 
           <div class="ae-body">
             <aside class="ae-left">
+              <UiScroll class="ae-left-scroll" always>
               <div class="ae-tabs">
                 <button type="button" class="on">生图</button>
                 <button type="button" class="off" disabled title="二期">改图</button>
@@ -808,6 +833,7 @@
               <button type="button" class="ae-gen" @click="applyAssetPrompt">
                 保存提示词
               </button>
+              </UiScroll>
             </aside>
 
             <section class="ae-center">
@@ -816,12 +842,23 @@
               </div>
               <div class="ae-preview" :class="{ empty: !editingAsset.imageUrl }">
                 <img v-if="editingAsset.imageUrl" :src="editingAsset.imageUrl" alt="" />
-                <p v-else>上传参考图或填写提示词后生成（二期接通真出图）</p>
+                <button
+                  v-else
+                  type="button"
+                  class="ae-preview-upload"
+                  @click="replaceAssetImage(editingAsset)"
+                >
+                  <UiIcon name="upload" :size="22" />
+                  <strong>上传参考图</strong>
+                  <span>支持 JPG / PNG / WebP</span>
+                </button>
               </div>
               <div class="ae-tools">
                 <button type="button" disabled title="二期">四宫格拆分</button>
                 <button type="button" disabled title="二期">改图</button>
-                <button type="button" @click="replaceAssetImage(editingAsset)">替换</button>
+                <button type="button" class="on" @click="replaceAssetImage(editingAsset)">
+                  上传 / 替换
+                </button>
                 <button type="button" disabled title="二期">变清晰</button>
               </div>
             </section>
@@ -830,8 +867,9 @@
               <strong>历史记录</strong>
               <button type="button" class="ae-upload" @click="replaceAssetImage(editingAsset)">
                 <UiIcon name="upload" :size="16" />
-                上传
+                上传图片
               </button>
+              <UiScroll class="ae-hist-scroll" always>
               <div class="ae-history">
                 <button
                   v-if="editingAsset.imageUrl"
@@ -843,10 +881,13 @@
                 </button>
                 <p v-else class="ae-hist-empty">暂无记录</p>
               </div>
+              </UiScroll>
             </aside>
           </div>
 
           <div class="ae-strip">
+            <UiScroll class="ae-strip-scroll" always>
+            <div class="ae-strip-inner">
             <button
               v-for="item in draft.sceneItems"
               :key="item.id"
@@ -861,6 +902,8 @@
               </span>
               <span class="ae-strip-name">{{ item.name || '未命名' }}</span>
             </button>
+            </div>
+            </UiScroll>
           </div>
         </div>
       </div>
@@ -894,6 +937,7 @@
 
           <div class="ve-body">
             <aside class="ve-left">
+              <UiScroll class="ve-left-scroll" always>
               <p class="ve-tip">
                 {{ videoEditorModeTip }}
               </p>
@@ -1011,6 +1055,7 @@
               >
                 {{ videoGenerating ? '生成中…' : '生成视频' }}
               </button>
+              </UiScroll>
             </aside>
 
             <section class="ve-center">
@@ -1041,6 +1086,7 @@
                 <UiIcon name="plus" :size="14" />
                 上传
               </button>
+              <UiScroll class="ve-hist-scroll" always>
               <div class="ve-history">
                 <button
                   v-if="editingVideoSlot.video?.url"
@@ -1052,10 +1098,13 @@
                 </button>
                 <p v-else class="ve-hist-empty">暂无记录</p>
               </div>
+              </UiScroll>
             </aside>
           </div>
 
           <div class="ve-strip">
+            <UiScroll class="ve-strip-scroll" always>
+            <div class="ve-strip-inner">
             <button
               v-for="(slot, idx) in videoSlots"
               :key="slot.key"
@@ -1070,6 +1119,8 @@
                 <em v-else>待生成</em>
               </span>
             </button>
+            </div>
+            </UiScroll>
           </div>
           <input
             ref="videoMaterialInput"
@@ -1092,71 +1143,172 @@
     <!-- 分镜脚本编辑弹框 -->
     <Teleport to="body">
       <div v-if="shotEditorOpen && editingShot" class="shot-editor-mask" @mousedown.self="closeShotEditor">
-        <div class="shot-editor" role="dialog" aria-label="编辑分镜">
+        <div class="shot-editor wide" role="dialog" aria-label="编辑分镜">
           <header class="se-head">
             <strong>
-              分镜脚本{{ editingShot.index }}：{{ editingShot.shot || '未命名' }}
+              分镜脚本{{ editingShot.index }}：{{ shotEditorForm.shot || '未命名' }}
             </strong>
             <div class="se-head-actions">
               <button type="button" class="modal-btn confirm" @click="saveShotEditor">保存</button>
               <button type="button" class="se-close" @click="closeShotEditor">×</button>
             </div>
           </header>
-          <div class="se-toolbar">
-            <button type="button" :disabled="!canShotUndo" @click="undoShotText" title="撤销">
-              <UiIcon name="undo" :size="15" />
-              撤销
-            </button>
-            <button type="button" :disabled="!canShotRedo" @click="redoShotText" title="重做">
-              <UiIcon name="redo" :size="15" />
-              重做
-            </button>
-            <button type="button" @click="copyShotText">
-              <UiIcon name="copy" :size="15" />
-              复制
-            </button>
-            <button type="button" @click="clearShotText">
-              <UiIcon name="trash" :size="15" />
-              清空
-            </button>
-            <button type="button" class="se-import" @click="triggerShotImport">
-              <UiIcon name="upload" :size="15" />
-              导入文档
-            </button>
+          <div class="se-split">
+            <aside class="se-keyframe">
+              <UiScroll class="se-kf-scroll" always>
+              <div class="se-kf-preview" :style="storyboardAspectStyle">
+                <img v-if="shotEditorForm.imageUrl" :src="shotEditorForm.imageUrl" alt="" />
+                <span v-else class="face-placeholder">暂无关键帧</span>
+              </div>
+              <div class="se-kf-actions">
+                <button
+                  type="button"
+                  class="pill-btn primary"
+                  :disabled="shotImageBusy"
+                  @click="generateShotKeyframe"
+                >
+                  {{ shotImageBusy ? '生成中…' : shotEditorForm.imageUrl ? '重新生成' : '生成分镜图' }}
+                </button>
+                <button type="button" class="pill-btn" @click="triggerShotImageReplace">替换</button>
+              </div>
+              <label class="se-field">
+                <span>关键帧提示词</span>
+                <textarea
+                  v-model="shotEditorForm.prompt"
+                  rows="3"
+                  placeholder="用于生成关键帧的提示词…"
+                  @input="dirty = true"
+                />
+              </label>
+              </UiScroll>
+            </aside>
+            <div class="se-fields">
+              <UiScroll class="se-fields-scroll" always>
+              <div class="se-toolbar compact">
+                <button type="button" @click="copyShotStructured">
+                  <UiIcon name="copy" :size="15" />
+                  复制
+                </button>
+                <button type="button" @click="clearShotStructured">
+                  <UiIcon name="trash" :size="15" />
+                  清空正文
+                </button>
+              </div>
+              <label class="se-field">
+                <span>镜头名</span>
+                <input v-model="shotEditorForm.shot" type="text" @input="dirty = true" />
+              </label>
+              <label class="se-field">
+                <span>画面描述</span>
+                <textarea
+                  v-model="shotEditorForm.description"
+                  rows="5"
+                  placeholder="画面动作、构图、运镜…"
+                  @input="dirty = true"
+                />
+              </label>
+              <label class="se-field">
+                <span>对白</span>
+                <textarea
+                  v-model="shotEditorForm.dialogue"
+                  rows="2"
+                  placeholder="对白 / 旁白（可选）"
+                  @input="dirty = true"
+                />
+              </label>
+              <div class="se-row">
+                <label class="se-field">
+                  <span>时长（秒）</span>
+                  <input
+                    v-model.number="shotEditorForm.durationSec"
+                    type="number"
+                    min="1"
+                    max="60"
+                    @input="dirty = true"
+                  />
+                </label>
+                <label class="se-field">
+                  <span>场景名</span>
+                  <input v-model="shotEditorForm.scene" type="text" @input="dirty = true" />
+                </label>
+              </div>
+              <label class="se-field">
+                <span>绑定场景资产</span>
+                <select v-model="shotEditorForm.sceneId" @change="onShotSceneBind">
+                  <option value="">不绑定</option>
+                  <option
+                    v-for="item in sceneAssetOptions"
+                    :key="item.id"
+                    :value="item.id"
+                  >
+                    {{ item.name }}
+                  </option>
+                </select>
+              </label>
+              <div class="se-field">
+                <span>绑定角色</span>
+                <div class="se-chips">
+                  <label
+                    v-for="item in characterAssetOptions"
+                    :key="item.id"
+                    class="se-chip"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="item.id"
+                      v-model="shotEditorForm.characterIds"
+                      @change="dirty = true"
+                    />
+                    <em>{{ item.name }}</em>
+                  </label>
+                  <span v-if="!characterAssetOptions.length" class="muted">暂无角色资产，请先在第 3 步生成</span>
+                </div>
+              </div>
+              </UiScroll>
+            </div>
           </div>
-          <textarea
-            v-model="shotEditorText"
-            class="se-editor"
-            placeholder="在此编写分镜画面描述、运镜、对白与风格说明…"
-            @input="onShotEditorInput"
-          />
           <input
-            ref="shotFileInput"
+            ref="shotImageInput"
             type="file"
-            accept=".txt,.md,text/plain"
+            accept="image/*"
             class="sr-only"
-            @change="onShotImportFile"
+            @change="onShotImageReplace"
           />
         </div>
       </div>
     </Teleport>
+    <input
+      ref="assetReplaceInput"
+      type="file"
+      accept="image/*"
+      class="sr-only"
+      @change="onAssetReplaceFile"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import UiIcon from '@/components/icons/UiIcon.vue';
+import { UiScroll } from '@/components/ui';
 import FilmPreviewWorkbench from '@/components/studio/FilmPreviewWorkbench.vue';
 import { useAiSettings } from '@/composables/useAiSettings';
 import {
-  fetchFilmStyleLibrary,
-  resolveHubAssetUrl,
-  type HubLibraryFilterDto,
-  type HubLibraryItemDto,
-} from '@/api/hub-catalog';
+  FILM_STYLE_FILTERS,
+  FILM_STYLES,
+  type FilmStyleItem,
+} from '@/constants/film-styles';
+import { namiAsset, resolveMediaUrl } from '@/constants/oss-public';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
 import api from '@/api';
+import {
+  createGenerateSession,
+  generateImage,
+  listGenerateMessages,
+  uploadGenerateRef,
+} from '@/api/generate';
 import {
   emptyFilmDraft,
   fetchFilmCollection,
@@ -1230,12 +1382,22 @@ const assetKindTabs = [
 ];
 const editingShotId = ref('');
 const shotEditorOpen = ref(false);
-const shotEditorText = ref('');
-const shotHistory = ref<string[]>(['']);
-const shotHistoryIndex = ref(0);
+const shotEditorForm = reactive({
+  shot: '',
+  scene: '',
+  description: '',
+  dialogue: '',
+  durationSec: 3,
+  prompt: '',
+  imageUrl: '',
+  characterIds: [] as string[],
+  sceneId: '',
+});
 const shotMenuId = ref('');
 const shotMenuPos = ref({ x: 0, y: 0 });
-const shotFileInput = ref<HTMLInputElement | null>(null);
+const shotImageInput = ref<HTMLInputElement | null>(null);
+const shotImageBusy = ref(false);
+const filmGenSessionId = ref('');
 const videoMenuId = ref('');
 const videoMenuPos = ref({ x: 0, y: 0 });
 const videoReplaceInput = ref<HTMLInputElement | null>(null);
@@ -1277,9 +1439,31 @@ const editingShot = computed(
   () => draft.storyboard.find((s) => s.id === editingShotId.value) || null,
 );
 
-const canShotUndo = computed(() => shotHistoryIndex.value > 0);
-const canShotRedo = computed(
-  () => shotHistoryIndex.value < shotHistory.value.length - 1,
+const storyboardDoneCount = computed(
+  () =>
+    draft.storyboard.filter(
+      (s) => String(s.imageUrl || '').trim() || String(s.description || '').trim(),
+    ).length,
+);
+
+const storyboardAspectStyle = computed(() => {
+  const raw = String(draft.videoSettings.aspect || '16:9');
+  const [w, h] = raw.split(':').map((n) => Number(n));
+  if (w > 0 && h > 0) return { aspectRatio: `${w} / ${h}` };
+  return { aspectRatio: '16 / 9' };
+});
+
+const sceneAssetOptions = computed(() =>
+  draft.sceneItems.filter((i) => i.kind === 'scene' && String(i.name || '').trim()),
+);
+
+const characterAssetOptions = computed(() =>
+  draft.sceneItems.filter((i) => i.kind === 'character' && String(i.name || '').trim()),
+);
+
+const isArticleEntry = computed(() => String(route.query.from || '') === 'article');
+const scriptPlaceholder = computed(() =>
+  isArticleEntry.value ? '粘贴文章、新闻或一句话创意，将据此改编成漫剧剧本…' : '',
 );
 const scriptUiMode = ref<'write' | 'ai'>('write');
 const scriptFileInput = ref<HTMLInputElement | null>(null);
@@ -1344,6 +1528,7 @@ const videoGenModes: Array<{
   title: string;
   tag?: string;
   desc: string;
+  detail: string;
   cover: string;
   badge?: string;
   video?: string;
@@ -1351,57 +1536,117 @@ const videoGenModes: Array<{
   {
     id: 'omni',
     title: '全能参考模式',
-    tag: '多参考直出',
+    tag: 'Seedance 2.5 + H3',
     desc: '多参考图直出视频，镜头连贯性更好',
-    cover: '/nami/modes/omni-cover.png',
-    badge: '/nami/modes/omni-badge.png',
-    video: '/nami/modes/omni-preview.mp4',
+    detail:
+      '全能参考模式：无需生分镜图，场景角色道具图直出视频，支持参考多张图片、音频、视频素材生成单条多镜头视频，镜头连贯性更好',
+    cover: namiAsset('modes/omni-cover.jpg'),
+    video: namiAsset('modes/omni-preview.mp4'),
+    badge: 'https://p4.ssl.qhimg.com/t110b9a930193b3196d24616a75.png',
   },
   {
     id: 'i2v',
     title: '图生视频模式',
-    tag: '关键帧可控',
-    desc: '先生分镜图，再生视频，精准掌控',
-    cover: '/nami/modes/i2v-cover.png',
-    badge: '/nami/modes/i2v-badge.png',
-    video: '/nami/modes/i2v-preview.mp4',
+    tag: 'Seedance 2.5 + H3',
+    desc: '多参考图生成分镜图后再生视频，精准掌控',
+    detail:
+      '图生视频模式：需先生分镜图，将关键剧情拆分成精细分镜图再生视频，适合对视频精度要求高的场景',
+    cover: namiAsset('modes/i2v-cover.jpg'),
+    video: namiAsset('modes/i2v-preview.mp4'),
+    badge: 'https://p4.ssl.qhimg.com/t110b9a930193b3196d24616a75.png',
   },
   {
     id: 'grid',
     title: '多宫格生视频',
-    tag: '连贯分格',
     desc: '通过连续不同帧生分镜视频，画面更连贯',
-    cover: '/nami/modes/grid-cover.png',
-    video: '/nami/modes/grid-preview.mp4',
+    detail: '多宫格生视频：通过连续不同帧生分镜视频，画面更连贯',
+    cover: namiAsset('modes/grid-cover.jpg'),
+    video: namiAsset('modes/grid-preview.mp4'),
   },
 ];
 
 const modeHoverId = ref<string>('');
-const modeVideoEls = new Map<string, HTMLVideoElement>();
+const modeCardEls = new Map<string, HTMLElement>();
+const modeHoverVideoEl = ref<HTMLVideoElement | null>(null);
+const modeHoverPop = ref<null | {
+  cover: string;
+  video?: string;
+  detail: string;
+  style: Record<string, string>;
+}>(null);
+let modeLeaveTimer: ReturnType<typeof setTimeout> | null = null;
 
-function bindModeVideo(id: string, el: unknown) {
-  if (el instanceof HTMLVideoElement) modeVideoEls.set(id, el);
-  else modeVideoEls.delete(id);
+function bindModeCard(id: string, el: unknown) {
+  if (el instanceof HTMLElement) modeCardEls.set(id, el);
+  else modeCardEls.delete(id);
+}
+
+function placeModePop(id: string) {
+  const m = videoGenModes.find((x) => x.id === id);
+  const card = modeCardEls.get(id);
+  if (!m || !card) {
+    modeHoverPop.value = null;
+    return;
+  }
+  const rect = card.getBoundingClientRect();
+  const popW = Math.min(300, window.innerWidth - 24);
+  let left = rect.left + rect.width / 2 - popW / 2;
+  left = Math.max(12, Math.min(left, window.innerWidth - popW - 12));
+  const gap = 10;
+  const preferTop = rect.top > 220;
+  const style: Record<string, string> = {
+    width: `${popW}px`,
+    left: `${left}px`,
+  };
+  if (preferTop) {
+    style.bottom = `${window.innerHeight - rect.top + gap}px`;
+    style.top = 'auto';
+  } else {
+    style.top = `${rect.bottom + gap}px`;
+    style.bottom = 'auto';
+  }
+  modeHoverPop.value = {
+    cover: m.cover,
+    video: m.video,
+    detail: m.detail,
+    style,
+  };
 }
 
 function onModeEnter(id: string) {
+  if (modeLeaveTimer) {
+    clearTimeout(modeLeaveTimer);
+    modeLeaveTimer = null;
+  }
   modeHoverId.value = id;
-  const el = modeVideoEls.get(id);
-  if (el) {
+  placeModePop(id);
+  requestAnimationFrame(() => {
+    const el = modeHoverVideoEl.value;
+    if (!el) return;
     el.currentTime = 0;
     void el.play().catch(() => undefined);
+  });
+}
+
+function onModePopEnter() {
+  if (modeLeaveTimer) {
+    clearTimeout(modeLeaveTimer);
+    modeLeaveTimer = null;
   }
 }
 
 function onModeLeave() {
-  const prev = modeHoverId.value;
-  modeHoverId.value = '';
-  const el = modeVideoEls.get(prev);
-  if (el) {
-    el.pause();
-    el.currentTime = 0;
-  }
+  if (modeLeaveTimer) clearTimeout(modeLeaveTimer);
+  modeLeaveTimer = setTimeout(() => {
+    modeHoverId.value = '';
+    modeHoverPop.value = null;
+    modeLeaveTimer = null;
+  }, 80);
 }
+
+onBeforeUnmount(() => {
+  if (modeLeaveTimer) clearTimeout(modeLeaveTimer);
+});
 
 const steps = [
   { index: 1, label: '剧本编辑', desc: '大纲+章节改编漫剧' },
@@ -1412,26 +1657,20 @@ const steps = [
   { index: 6, label: '视频预览', desc: '成片预览与备注' },
 ];
 
-const hubStyles = ref<HubLibraryItemDto[]>([]);
-const styleFilters = ref<HubLibraryFilterDto[]>([
-  { id: 'all', label: '全部' },
-  { id: '真人', label: '真人' },
-  { id: '3D', label: '3D' },
-  { id: '2D', label: '2D' },
-]);
+const styleList = ref<FilmStyleItem[]>([...FILM_STYLES]);
+const styleFilters = ref([...FILM_STYLE_FILTERS]);
 const stylesLoading = ref(false);
-const hubOrigin = ref('');
 const selectedStyleId = ref('');
 const styleModalOpen = ref(false);
 const styleFilterId = ref('all');
 const pendingStyleId = ref('');
 
-const stylePreviewList = computed(() => hubStyles.value.slice(0, 7));
+const stylePreviewList = computed(() => styleList.value.slice(0, 7));
 
 const filteredModalStyles = computed(() => {
   const fid = String(styleFilterId.value || 'all');
-  if (!fid || fid === 'all' || fid === '全部') return hubStyles.value;
-  return hubStyles.value.filter((s) => {
+  if (!fid || fid === 'all' || fid === '全部') return styleList.value;
+  return styleList.value.filter((s) => {
     if (String(s.group || '') === fid) return true;
     return (s.tags || []).includes(fid);
   });
@@ -1501,6 +1740,11 @@ const editingVideoSlot = computed(() =>
 
 const videoModels = computed(() => {
   const list = modelsOf('video') || modelsOf('chat') || [];
+  return list.length ? list : [{ value: '', label: '默认模型' }];
+});
+
+const imageModels = computed(() => {
+  const list = modelsOf('image') || [];
   return list.length ? list : [{ value: '', label: '默认模型' }];
 });
 
@@ -1829,40 +2073,30 @@ async function removeEditingAsset() {
   editingAssetId.value = '';
 }
 
-function shotBodyText(shot: FilmStoryboardShot) {
-  const parts = [
-    shot.shot ? `【${shot.shot}】` : '',
-    shot.scene ? `场景：${shot.scene}` : '',
-    shot.description || '',
-    shot.dialogue ? `对白：${shot.dialogue}` : '',
-    shot.prompt || '',
-  ].filter((x) => String(x).trim());
-  return parts.join('\n');
+function shotCardHint(shot: FilmStoryboardShot) {
+  const text = String(shot.description || shot.shot || shot.scene || '').trim();
+  if (!text) return '';
+  return text.length > 72 ? `${text.slice(0, 72)}…` : text;
 }
 
-function shotStatusLabel(shot: FilmStoryboardShot) {
-  if (String(shot.description || '').trim()) return '已完成';
-  if (String(shot.shot || shot.scene || '').trim()) return '草稿';
-  return '待编辑';
-}
-
-function shotStatusClass(shot: FilmStoryboardShot) {
-  if (String(shot.description || '').trim()) return 'ok';
-  if (String(shot.shot || shot.scene || '').trim()) return 'draft';
-  return 'wait';
-}
-
-function insertShotAfter(index: number) {
-  const shot: FilmStoryboardShot = {
+function emptyShotFields(indexHint = 0): FilmStoryboardShot {
+  return {
     id: id(),
-    index: index + 2,
+    index: indexHint,
     shot: `未命名${draft.storyboard.length ? draft.storyboard.length : ''}`,
     scene: '',
     description: '',
     dialogue: '',
     durationSec: draft.videoSettings.durationSec || 10,
     prompt: '',
+    imageUrl: '',
+    characterIds: [],
+    sceneId: '',
   };
+}
+
+function insertShotAfter(index: number) {
+  const shot = emptyShotFields(index + 2);
   draft.storyboard.splice(index + 1, 0, shot);
   draft.storyboard.forEach((s, i) => {
     s.index = i + 1;
@@ -1879,23 +2113,20 @@ function insertShotAfter(index: number) {
   openShotEditor(shot.id);
 }
 
-function composeShotEditorText(shot: FilmStoryboardShot) {
-  return shotBodyText(shot);
-}
-
-function applyShotEditorTextToShot(shot: FilmStoryboardShot, text: string) {
-  // 编辑区以完整正文为主，写入 description；保留名称/场景字段
-  shot.description = String(text || '');
-  shot.prompt = shot.prompt || '';
-}
-
-function openShotEditor(id: string) {
-  editingShotId.value = id;
-  const shot = draft.storyboard.find((s) => s.id === id);
-  const text = shot ? composeShotEditorText(shot) : '';
-  shotEditorText.value = text;
-  shotHistory.value = [text];
-  shotHistoryIndex.value = 0;
+function openShotEditor(shotId: string) {
+  editingShotId.value = shotId;
+  const shot = draft.storyboard.find((s) => s.id === shotId);
+  if (shot) {
+    shotEditorForm.shot = shot.shot || '';
+    shotEditorForm.scene = shot.scene || '';
+    shotEditorForm.description = shot.description || '';
+    shotEditorForm.dialogue = shot.dialogue || '';
+    shotEditorForm.durationSec = Math.max(1, Number(shot.durationSec) || 3);
+    shotEditorForm.prompt = shot.prompt || '';
+    shotEditorForm.imageUrl = shot.imageUrl || '';
+    shotEditorForm.characterIds = [...(shot.characterIds || [])];
+    shotEditorForm.sceneId = shot.sceneId || '';
+  }
   shotEditorOpen.value = true;
   closeShotMenu();
 }
@@ -1904,10 +2135,22 @@ function closeShotEditor() {
   shotEditorOpen.value = false;
 }
 
+function applyShotEditorForm(shot: FilmStoryboardShot) {
+  shot.shot = String(shotEditorForm.shot || '').trim() || shot.shot;
+  shot.scene = String(shotEditorForm.scene || '').trim();
+  shot.description = String(shotEditorForm.description || '');
+  shot.dialogue = String(shotEditorForm.dialogue || '').trim();
+  shot.durationSec = Math.max(1, Number(shotEditorForm.durationSec) || 3);
+  shot.prompt = String(shotEditorForm.prompt || '').trim();
+  shot.imageUrl = String(shotEditorForm.imageUrl || '').trim();
+  shot.characterIds = [...shotEditorForm.characterIds];
+  shot.sceneId = String(shotEditorForm.sceneId || '').trim();
+}
+
 async function saveShotEditor() {
   const shot = editingShot.value;
   if (shot) {
-    applyShotEditorTextToShot(shot, shotEditorText.value);
+    applyShotEditorForm(shot);
     dirty.value = true;
   }
   shotEditorOpen.value = false;
@@ -1915,70 +2158,157 @@ async function saveShotEditor() {
   ElMessage.success('分镜已保存');
 }
 
-function pushShotHistory(text: string) {
-  const next = shotHistory.value.slice(0, shotHistoryIndex.value + 1);
-  if (next[next.length - 1] === text) return;
-  next.push(text);
-  if (next.length > 40) next.shift();
-  shotHistory.value = next;
-  shotHistoryIndex.value = next.length - 1;
-}
-
-let shotInputTimer: ReturnType<typeof setTimeout> | null = null;
-function onShotEditorInput() {
-  dirty.value = true;
-  if (shotInputTimer) clearTimeout(shotInputTimer);
-  shotInputTimer = setTimeout(() => {
-    pushShotHistory(shotEditorText.value);
-  }, 350);
-}
-
-function undoShotText() {
-  if (!canShotUndo.value) return;
-  shotHistoryIndex.value -= 1;
-  shotEditorText.value = shotHistory.value[shotHistoryIndex.value] || '';
-  dirty.value = true;
-}
-
-function redoShotText() {
-  if (!canShotRedo.value) return;
-  shotHistoryIndex.value += 1;
-  shotEditorText.value = shotHistory.value[shotHistoryIndex.value] || '';
-  dirty.value = true;
-}
-
-async function copyShotText() {
+async function copyShotStructured() {
   try {
-    await navigator.clipboard.writeText(shotEditorText.value || '');
+    await navigator.clipboard.writeText(
+      [
+        shotEditorForm.shot ? `【${shotEditorForm.shot}】` : '',
+        shotEditorForm.scene ? `场景：${shotEditorForm.scene}` : '',
+        shotEditorForm.description || '',
+        shotEditorForm.dialogue ? `对白：${shotEditorForm.dialogue}` : '',
+        shotEditorForm.prompt || '',
+      ]
+        .filter((x) => String(x).trim())
+        .join('\n'),
+    );
     ElMessage.success('已复制');
   } catch {
     ElMessage.error('复制失败');
   }
 }
 
-function clearShotText() {
-  shotEditorText.value = '';
+function clearShotStructured() {
+  shotEditorForm.description = '';
+  shotEditorForm.dialogue = '';
+  shotEditorForm.prompt = '';
   dirty.value = true;
-  pushShotHistory('');
 }
 
-function triggerShotImport() {
-  shotFileInput.value?.click();
+function onShotSceneBind() {
+  dirty.value = true;
+  const item = draft.sceneItems.find((i) => i.id === shotEditorForm.sceneId);
+  if (item?.name) shotEditorForm.scene = item.name;
 }
 
-async function onShotImportFile(ev: Event) {
+function triggerShotImageReplace() {
+  shotImageInput.value?.click();
+}
+
+async function onShotImageReplace(ev: Event) {
   const input = ev.target as HTMLInputElement;
   const file = input.files?.[0];
   input.value = '';
   if (!file) return;
   try {
-    const text = await file.text();
-    shotEditorText.value = text;
+    const sessionId = await ensureFilmGenSession();
+    const uploaded = await uploadGenerateRef(sessionId, file);
+    shotEditorForm.imageUrl = uploaded.url || URL.createObjectURL(file);
     dirty.value = true;
-    pushShotHistory(text);
-    ElMessage.success('已导入');
+    ElMessage.success('已替换关键帧');
   } catch (e: any) {
-    ElMessage.error(e?.message || '导入失败');
+    try {
+      shotEditorForm.imageUrl = URL.createObjectURL(file);
+      dirty.value = true;
+      ElMessage.success('已替换关键帧（本地预览）');
+    } catch {
+      ElMessage.error(e?.message || '读取图片失败');
+    }
+  }
+}
+
+async function ensureFilmGenSession() {
+  if (filmGenSessionId.value) return filmGenSessionId.value;
+  const title = `分镜·${draft.name || projectId.value || '剧集'}`.slice(0, 40);
+  const session = await createGenerateSession(title);
+  filmGenSessionId.value = session.id;
+  return session.id;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitGenerateImageUrl(sessionId: string, messageId: string) {
+  for (let i = 0; i < 90; i += 1) {
+    const rows = await listGenerateMessages(sessionId);
+    const row = rows.find((m) => m.id === messageId);
+    if (!row) {
+      await sleep(2000);
+      continue;
+    }
+    if (row.status === 'error') {
+      throw new Error(row.errorMessage || '分镜图生成失败');
+    }
+    const url = String(row.mediaUrl || '').trim();
+    if (row.status === 'done' && url) return url;
+    if (row.status === 'done') {
+      const prefsUrls = Array.isArray(row.prefs?.mediaUrls)
+        ? (row.prefs!.mediaUrls as unknown[]).map((u) => String(u || '').trim()).filter(Boolean)
+        : [];
+      if (prefsUrls[0]) return prefsUrls[0];
+    }
+    await sleep(2200);
+  }
+  throw new Error('分镜图生成超时，请稍后重试');
+}
+
+async function generateShotKeyframe() {
+  if (shotImageBusy.value) return;
+  const prompt = String(
+    shotEditorForm.prompt ||
+      shotEditorForm.description ||
+      shotEditorForm.shot ||
+      '',
+  ).trim();
+  if (!prompt) {
+    ElMessage.warning('请先填写画面描述或关键帧提示词');
+    return;
+  }
+  shotImageBusy.value = true;
+  try {
+    await ensureAiSettings();
+    const sessionId = await ensureFilmGenSession();
+    const refs: string[] = [];
+    for (const cid of shotEditorForm.characterIds) {
+      const item = draft.sceneItems.find((i) => i.id === cid && i.imageUrl);
+      if (item?.imageUrl) refs.push(String(item.imageUrl));
+    }
+    if (shotEditorForm.sceneId) {
+      const scene = draft.sceneItems.find((i) => i.id === shotEditorForm.sceneId && i.imageUrl);
+      if (scene?.imageUrl) refs.push(String(scene.imageUrl));
+    }
+    const styleBits = [draft.style.family, draft.style.sub, draft.style.brief]
+      .map((x) => String(x || '').trim())
+      .filter(Boolean);
+    const fullPrompt = [
+      prompt,
+      styleBits.length ? `风格：${styleBits.join(' / ')}` : '',
+      '电影分镜关键帧，构图清晰，适合后续图生视频。',
+    ]
+      .filter(Boolean)
+      .join('\n');
+    const aspect = String(draft.videoSettings.aspect || '16:9');
+    const model = String(imageModels.value[0]?.value || '') || undefined;
+    const result = await generateImage({
+      sessionId,
+      prompt: fullPrompt,
+      model,
+      aspectRatio: aspect,
+      count: 1,
+      referenceImages: refs.slice(0, 4),
+      prefs: { aspectRatio: aspect, source: 'film-storyboard' },
+    });
+    const msgId = result.assistantMessage?.id;
+    if (!msgId) throw new Error('未返回生成任务');
+    const url = await waitGenerateImageUrl(sessionId, msgId);
+    shotEditorForm.imageUrl = url;
+    if (!shotEditorForm.prompt) shotEditorForm.prompt = prompt;
+    dirty.value = true;
+    ElMessage.success('分镜图已生成');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || e?.message || '生成分镜图失败');
+  } finally {
+    shotImageBusy.value = false;
   }
 }
 
@@ -2020,6 +2350,7 @@ function menuCopyShot() {
     id: id(),
     index: draft.storyboard.length + 1,
     shot: `${src.shot || '分镜'} 副本`,
+    characterIds: [...(src.characterIds || [])],
   };
   draft.storyboard.push(copy);
   dirty.value = true;
@@ -2120,7 +2451,8 @@ function openVideoEditor(key: string) {
         .join('\n') ||
       '',
   );
-  videoEditorMaterials.value = draft.sceneItems
+  const keyframe = String(shot?.imageUrl || '').trim();
+  const fromAssets = draft.sceneItems
     .filter((i) => i.imageUrl)
     .slice(0, 6)
     .map((i) => ({
@@ -2128,6 +2460,15 @@ function openVideoEditor(key: string) {
       name: i.name || kindLabel(i.kind),
       url: String(i.imageUrl),
     }));
+  videoEditorMaterials.value = [
+    ...(keyframe
+      ? [{ id: `kf-${shot?.id || 'shot'}`, name: '分镜关键帧', url: keyframe }]
+      : []),
+    ...fromAssets.filter((i) => i.url !== keyframe),
+  ].slice(0, 8);
+  if (keyframe && videoEditorMode.value === 'omni') {
+    videoEditorMode.value = 'i2v';
+  }
   if (!videoEditorModel.value && videoModels.value[0]) {
     videoEditorModel.value = String(videoModels.value[0].value || '');
   }
@@ -2362,16 +2703,7 @@ function videoMenuDelete() {
 }
 
 function insertStoryboardAfter(index: number) {
-  const shot: FilmStoryboardShot = {
-    id: id(),
-    index: index + 2,
-    shot: `未命名${draft.storyboard.length ? draft.storyboard.length : ''}`,
-    scene: '',
-    description: '',
-    dialogue: '',
-    durationSec: draft.videoSettings.durationSec || 10,
-    prompt: '',
-  };
+  const shot = emptyShotFields(index + 2);
   draft.storyboard.splice(index + 1, 0, shot);
   draft.storyboard.forEach((s, i) => {
     s.index = i + 1;
@@ -2442,6 +2774,10 @@ function assignDraft(p: FilmProject) {
   scriptHistoryIndex.value = 0;
   // 已有剧本直接进编写态，否则展示三选一入口
   scriptUiMode.value = 'write';
+  if (String(route.query.from || '') === 'article') {
+    draft.adaptedFrom = 'paste';
+    scriptUiMode.value = 'write';
+  }
 }
 
 async function loadNovelData(bookId: string) {
@@ -2489,7 +2825,7 @@ async function load() {
     adaptModel.value = chatModels.value[0]?.value || '';
     await ensureCollectionMeta();
     if (draft.sourceBookId) await loadNovelData(draft.sourceBookId);
-    void loadHubStyles();
+    void hydrateStyles();
   } catch (e: any) {
     ElMessage.error(e?.response?.data?.message || e?.message || '加载项目失败');
   } finally {
@@ -2612,26 +2948,15 @@ function setVideoMode(mode: FilmVideoGenMode) {
   dirty.value = true;
 }
 
-function styleCoverUrl(s: HubLibraryItemDto) {
-  return resolveHubAssetUrl(hubOrigin.value, s.coverUrl);
+function styleCoverUrl(s: FilmStyleItem) {
+  return s.coverUrl || '';
 }
 
-function styleCoverStyle(s: HubLibraryItemDto) {
-  const url = styleCoverUrl(s);
-  if (!url) return undefined;
-  return {
-    backgroundImage: `url(${url})`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    color: 'transparent',
-  };
-}
-
-function applyHubStyle(s: HubLibraryItemDto) {
+function applyStyle(s: FilmStyleItem) {
   selectedStyleId.value = s.id;
-  draft.style.family = s.group || s.category || '';
+  draft.style.family = s.group || '';
   draft.style.sub = s.label;
-  draft.style.brief = s.styleBrief || s.blurb || draft.style.brief || '';
+  draft.style.brief = s.brief || draft.style.brief || '';
   dirty.value = true;
 }
 
@@ -2639,7 +2964,7 @@ function openStyleModal() {
   styleFilterId.value = 'all';
   pendingStyleId.value =
     selectedStyleId.value ||
-    hubStyles.value.find((x) => x.label === draft.style.sub)?.id ||
+    styleList.value.find((x) => x.label === draft.style.sub)?.id ||
     '';
   styleModalOpen.value = true;
 }
@@ -2649,30 +2974,64 @@ function cancelStyleModal() {
 }
 
 function confirmStyleModal() {
-  const s = hubStyles.value.find((x) => x.id === pendingStyleId.value);
-  if (s) applyHubStyle(s);
+  const s = styleList.value.find((x) => x.id === pendingStyleId.value);
+  if (s) applyStyle(s);
   styleModalOpen.value = false;
 }
 
-async function loadHubStyles() {
+function inferStyleGroup(a: { name?: string; prompt?: string; meta?: Record<string, unknown> }) {
+  const metaGroup = String(a.meta?.group || '').trim();
+  if (metaGroup) return metaGroup;
+  const blob = `${a.name || ''} ${a.prompt || ''} ${JSON.stringify(a.meta || {})}`;
+  if (/真人|写实|短剧|商业广告|电影|古装|港风/i.test(blob)) return '真人';
+  if (/3D|三维|CG|机甲|卡通/i.test(blob)) return '3D';
+  if (/2D|动漫|水墨|立绘|国风/i.test(blob)) return '2D';
+  return '其他';
+}
+
+async function hydrateStyles() {
   stylesLoading.value = true;
   try {
-    try {
-      const { data } = await api.get('/hub/config');
-      hubOrigin.value = String(data?.baseUrl || data?.defaultBaseUrl || '').replace(
-        /\/+$/,
-        '',
-      );
-    } catch {
-      hubOrigin.value = '';
-    }
-    const pack = await fetchFilmStyleLibrary();
-    hubStyles.value = pack.items;
-    if (pack.filters.length) styleFilters.value = pack.filters;
+    const { data } = await api.get('/projects/_library/assets', {
+      params: { type: 'style' },
+    });
+    const rows = Array.isArray(data) ? data : [];
+    const mapped: FilmStyleItem[] = rows
+      .filter((a: any) => {
+        const url = String(a?.url || '').trim();
+        const meta = a?.meta && typeof a.meta === 'object' ? a.meta : {};
+        // 跳过旧的猜测种子（首页作品/海报乱分类）
+        if (meta.source === 'nami' && meta.seedSlug) return false;
+        return Boolean(url);
+      })
+      .map((a: any) => {
+        const group = inferStyleGroup(a);
+        const tags = Array.isArray(a?.meta?.tags)
+          ? a.meta.tags.map((t: unknown) => String(t))
+          : [group].filter(Boolean);
+        return {
+          id: String(a.id),
+          label: String(a.name || '未命名风格'),
+          group,
+          brief: String(a.prompt || a.meta?.brief || ''),
+          coverUrl: resolveMediaUrl(String(a.url || '')),
+          tags,
+        } satisfies FilmStyleItem;
+      });
+    styleList.value = mapped.length ? mapped : [...FILM_STYLES];
+    const groups = [...new Set(styleList.value.map((s) => s.group).filter(Boolean))];
+    styleFilters.value = [
+      { id: 'all', label: '全部' },
+      ...groups.map((g) => ({ id: g, label: g })),
+    ];
     if (!selectedStyleId.value && draft.style.sub) {
-      const hit = pack.items.find((x) => x.label === draft.style.sub);
+      const hit = styleList.value.find((x) => x.label === draft.style.sub);
       if (hit) selectedStyleId.value = hit.id;
     }
+  } catch (e: any) {
+    console.warn('load style library failed', e?.message || e);
+    styleList.value = [...FILM_STYLES];
+    styleFilters.value = [...FILM_STYLE_FILTERS];
   } finally {
     stylesLoading.value = false;
   }
@@ -2722,16 +3081,8 @@ async function runExtractAssets() {
 }
 
 function addStoryboardShot() {
-  const shot: FilmStoryboardShot = {
-    id: id(),
-    index: draft.storyboard.length + 1,
-    shot: `未命名${draft.storyboard.length ? draft.storyboard.length : ''}`,
-    scene: '',
-    description: '',
-    dialogue: '',
-    durationSec: 3,
-    prompt: '',
-  };
+  const shot = emptyShotFields(draft.storyboard.length + 1);
+  shot.durationSec = 3;
   draft.storyboard.push(shot);
   dirty.value = true;
   openShotEditor(shot.id);
@@ -2739,16 +3090,7 @@ function addStoryboardShot() {
 
 /** 分镜视频页：新增一镜并打开视频编辑台（不进脚本编辑） */
 function addVideoShot() {
-  const shot: FilmStoryboardShot = {
-    id: id(),
-    index: draft.storyboard.length + 1,
-    shot: `未命名${draft.storyboard.length ? draft.storyboard.length : ''}`,
-    scene: '',
-    description: '',
-    dialogue: '',
-    durationSec: draft.videoSettings.durationSec || 10,
-    prompt: '',
-  };
+  const shot = emptyShotFields(draft.storyboard.length + 1);
   draft.storyboard.push(shot);
   draft.shotVideos.push({
     id: id(),
@@ -3006,7 +3348,7 @@ onMounted(load);
   min-height: 0;
   padding: 14px 12px 16px;
   background: #0f0f0f;
-  overflow: auto;
+  overflow: hidden;
   box-sizing: border-box;
   border: 0;
   border-radius: 0;
@@ -3031,12 +3373,16 @@ onMounted(load);
   text-overflow: ellipsis;
 }
 
+.step-list-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
 .step-list {
   display: flex;
   flex-direction: column;
   position: relative;
   padding: 0 2px;
-  flex: 1;
 }
 
 .step-item {
@@ -3063,8 +3409,8 @@ onMounted(load);
 }
 
 .step-item.on {
-  color: #ecfdf5;
-  background: rgba(16, 185, 129, 0.22);
+  color: #eff6ff;
+  background: rgba(37, 99, 235, 0.22);
 }
 
 /* 虚线时间轴：从当前圆点连到下一步 */
@@ -3110,8 +3456,8 @@ onMounted(load);
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: #10b981;
-  color: #052e1c;
+  background: #2563eb;
+  color: #ffffff;
   display: grid;
   place-items: center;
   font-size: 12px;
@@ -3119,14 +3465,14 @@ onMounted(load);
 }
 
 .step-item.on .step-no {
-  border-color: #34d399;
-  background: #10b981;
-  color: #052e1c;
+  border-color: #3b82f6;
+  background: #2563eb;
+  color: #ffffff;
 }
 
 .step-item.done:not(.on) .step-no {
-  border-color: #34d399;
-  color: #34d399;
+  border-color: #3b82f6;
+  color: #3b82f6;
 }
 
 .step-label {
@@ -3148,7 +3494,7 @@ onMounted(load);
 
 .step-item.on .step-label strong {
   font-weight: 650;
-  color: #ecfdf5;
+  color: #eff6ff;
 }
 
 .share-rail-btn {
@@ -3171,19 +3517,30 @@ onMounted(load);
 }
 .share-rail-btn:hover {
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(52, 211, 153, 0.35);
+  border-color: rgba(59, 130, 246, 0.35);
 }
 
 .step-content {
   min-width: 0;
   min-height: 0;
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   border: 0;
   border-radius: 0;
   background: transparent;
   padding: 8px 24px 28px;
   box-sizing: border-box;
+}
+.step-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.work-main.script-focus .step-scroll :deep(.el-scrollbar__view),
+.work-main.preview-focus .step-scroll :deep(.el-scrollbar__view) {
+  height: 100%;
+  min-height: 100%;
 }
 
 .step-pane {
@@ -3276,14 +3633,14 @@ onMounted(load);
   border-color: rgba(255, 255, 255, 0.22);
 }
 .nami-pill.ai {
-  background: rgba(16, 185, 129, 0.16);
-  border-color: rgba(52, 211, 153, 0.35);
-  color: #ecfdf5;
+  background: rgba(37, 99, 235, 0.16);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #eff6ff;
 }
 .nami-pill.ai.on,
 .nami-pill.ai:hover {
-  background: rgba(16, 185, 129, 0.28);
-  border-color: #34d399;
+  background: rgba(37, 99, 235, 0.28);
+  border-color: #3b82f6;
 }
 .pill-avatar {
   width: 22px;
@@ -3291,8 +3648,8 @@ onMounted(load);
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: rgba(16, 185, 129, 0.28);
-  color: #6ee7b7;
+  background: rgba(37, 99, 235, 0.28);
+  color: #93c5fd;
 }
 .icon-tool {
   width: 34px;
@@ -3354,18 +3711,18 @@ onMounted(load);
   padding: 12px 16px;
   border: 0;
   border-radius: 14px;
-  background: #10b981;
-  color: #052e1c;
+  background: #2563eb;
+  color: #ffffff;
   text-align: left;
   cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 2px;
-  box-shadow: 0 10px 28px rgba(16, 185, 129, 0.35);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.35);
   transition: transform 0.15s ease, background 0.15s ease;
 }
 .paste-fab:hover {
-  background: #34d399;
+  background: #3b82f6;
   transform: translateY(-1px);
 }
 .paste-fab strong {
@@ -3407,14 +3764,18 @@ onMounted(load);
   font-size: 12px;
   color: #737373;
 }
+.ai-assist-scroll {
+  flex: 1;
+  min-height: 0;
+}
 .ai-avatar {
   width: 36px;
   height: 36px;
   border-radius: 999px;
   display: grid;
   place-items: center;
-  background: rgba(16, 185, 129, 0.18);
-  color: #6ee7b7;
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
   flex-shrink: 0;
 }
 .ai-close {
@@ -3431,10 +3792,14 @@ onMounted(load);
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
 }
+.ai-assist-scroll {
+  flex: 1;
+  min-height: 0;
+}
 .ai-assist-body {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 14px;
 }
 .ai-empty {
@@ -3475,8 +3840,8 @@ onMounted(load);
   gap: 4px;
 }
 .ai-quick-item:hover {
-  border-color: rgba(52, 211, 153, 0.35);
-  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(37, 99, 235, 0.08);
 }
 .ai-quick-item strong {
   font-size: 13px;
@@ -3499,8 +3864,8 @@ onMounted(load);
   white-space: pre-wrap;
 }
 .ai-msg.user {
-  background: rgba(16, 185, 129, 0.16);
-  color: #ecfdf5;
+  background: rgba(37, 99, 235, 0.16);
+  color: #eff6ff;
   align-self: flex-end;
   max-width: 92%;
 }
@@ -3511,7 +3876,7 @@ onMounted(load);
 .ai-typing {
   margin: 0;
   font-size: 12px;
-  color: #6ee7b7;
+  color: #93c5fd;
 }
 .ai-compose {
   padding: 12px 14px 16px;
@@ -3530,8 +3895,8 @@ onMounted(load);
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 .ai-compose-box:focus-within {
-  border-color: rgba(52, 211, 153, 0.45);
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
 }
 .ai-compose-box textarea {
   width: 100%;
@@ -3578,7 +3943,7 @@ onMounted(load);
 }
 .ai-compose .ai-model-select .el-select__wrapper:hover,
 .ai-compose .ai-model-select .el-select__wrapper.is-focused {
-  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.4) inset !important;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.4) inset !important;
 }
 .ai-compose .ai-model-select .el-select__selected-item,
 .ai-compose .ai-model-select .el-select__placeholder,
@@ -3591,8 +3956,8 @@ onMounted(load);
   height: 32px;
   border: 0;
   border-radius: 999px;
-  background: #10b981;
-  color: #052e1c;
+  background: #2563eb;
+  color: #ffffff;
   display: grid;
   place-items: center;
   cursor: pointer;
@@ -3600,7 +3965,7 @@ onMounted(load);
   transition: background 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
 .ai-send:hover:not(:disabled) {
-  background: #34d399;
+  background: #3b82f6;
   transform: translateY(-1px);
 }
 .ai-send:disabled {
@@ -3656,17 +4021,17 @@ onMounted(load);
   cursor: pointer;
 }
 .chapter-chip.on {
-  border-color: rgba(52, 211, 153, 0.4);
-  color: #ecfdf5;
-  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #eff6ff;
+  background: rgba(37, 99, 235, 0.12);
 }
 .chapter-chip input {
-  accent-color: #10b981;
+  accent-color: #2563eb;
 }
 .status-line {
   margin: 8px 0 0;
   font-size: 12px;
-  color: #6ee7b7;
+  color: #93c5fd;
   flex-shrink: 0;
 }
 .tb-btn {
@@ -3685,8 +4050,8 @@ onMounted(load);
   color: #fff;
 }
 .tb-btn.accent {
-  background: rgba(16, 185, 129, 0.18);
-  color: #6ee7b7;
+  background: rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
 }
 .tb-btn:disabled {
   opacity: 0.4;
@@ -3704,8 +4069,8 @@ onMounted(load);
 }
 
 .video-settings {
-  --vs-accent: #6bcf6b;
-  --vs-accent-soft: rgba(107, 207, 107, 0.18);
+  --vs-accent: #3b82f6;
+  --vs-accent-soft: rgba(59, 130, 246, 0.18);
 }
 
 .chip-row {
@@ -3785,9 +4150,8 @@ onMounted(load);
   color: inherit;
   cursor: pointer;
   font: inherit;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) 120px;
-  min-height: 220px;
+  display: block;
+  min-height: 0;
   overflow: hidden;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
@@ -3815,7 +4179,7 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px 14px 12px;
+  padding: 16px 14px 14px;
 }
 .mode-card-top {
   display: flex;
@@ -3831,52 +4195,19 @@ onMounted(load);
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid var(--studio-line-bright);
-  color: var(--studio-faint);
+  border: 1px solid color-mix(in srgb, #d4a84b 55%, var(--studio-line-bright));
+  color: #e8c878;
+  background: linear-gradient(180deg, rgba(232, 200, 120, 0.14), rgba(232, 200, 120, 0.04));
 }
 .mode-card.on .mode-badge {
-  border-color: var(--vs-accent);
-  color: var(--vs-accent);
+  border-color: color-mix(in srgb, #d4a84b 70%, var(--vs-accent));
+  color: #f0d28a;
 }
 .mode-card em {
   font-style: normal;
   font-size: 12px;
   line-height: 1.5;
   color: var(--studio-muted);
-}
-.mode-media {
-  position: relative;
-  margin: 0 10px 10px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #0a0a0a;
-  min-height: 110px;
-}
-.mode-cover,
-.mode-video {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.mode-cover {
-  opacity: 1;
-  transition: opacity 0.2s ease;
-}
-.mode-video {
-  opacity: 0;
-  transition: opacity 0.2s ease;
-  pointer-events: none;
-}
-.mode-card.hover .mode-cover,
-.mode-card:hover .mode-cover {
-  opacity: 0;
-}
-.mode-card.hover .mode-video,
-.mode-card:hover .mode-video {
-  opacity: 1;
 }
 
 .style-row {
@@ -3912,8 +4243,11 @@ onMounted(load);
   font-size: 18px;
   font-weight: 650;
   border: 2px solid transparent;
-  background-size: cover;
-  background-position: center;
+}
+.style-cover-img {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
 }
 .style-card.on .style-cover {
   border-color: var(--vs-accent);
@@ -3928,6 +4262,7 @@ onMounted(load);
   left: 0;
   right: 0;
   bottom: 0;
+  z-index: 1;
   padding: 18px 6px 8px;
   font-size: 11px;
   font-weight: 500;
@@ -3943,6 +4278,7 @@ onMounted(load);
   position: absolute;
   top: 6px;
   right: 6px;
+  z-index: 1;
   width: 18px;
   height: 18px;
   border-radius: 999px;
@@ -4025,8 +4361,8 @@ onMounted(load);
 }
 
 .style-brief-input:focus {
-  border-color: var(--vs-accent, #6bcf6b);
-  box-shadow: 0 0 0 3px var(--vs-accent-soft, rgba(107, 207, 107, 0.18));
+  border-color: var(--vs-accent, #3b82f6);
+  box-shadow: 0 0 0 3px var(--vs-accent-soft, rgba(59, 130, 246, 0.18));
 }
 
 .style-mask {
@@ -4096,10 +4432,14 @@ onMounted(load);
   font-weight: 600;
 }
 
+.style-modal-scroll {
+  flex: 1;
+  min-height: 0;
+}
 .style-modal-grid {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 8px 18px 16px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
@@ -4123,7 +4463,7 @@ onMounted(load);
   color: #fff;
 }
 .style-modal-grid .style-card.on .style-cover {
-  border-color: var(--vs-accent, #6bcf6b);
+  border-color: var(--vs-accent, #3b82f6);
 }
 
 .style-modal-foot {
@@ -4149,7 +4489,7 @@ onMounted(load);
 }
 .modal-btn.confirm {
   border: 0;
-  background: #6bcf6b;
+  background: #3b82f6;
   color: #111;
   font-weight: 650;
 }
@@ -4273,9 +4613,9 @@ onMounted(load);
 }
 .board-insert:hover,
 .video-insert:hover {
-  background: #34d399;
-  border-color: #34d399;
-  color: #052e1c;
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
 }
 
 .video-card {
@@ -4289,7 +4629,7 @@ onMounted(load);
 }
 .video-card:hover,
 .video-card.on {
-  border-color: #3a3a3a;
+  border-color: rgba(59, 130, 246, 0.4);
   background: #242424;
 }
 
@@ -4396,9 +4736,9 @@ onMounted(load);
   opacity: 1;
 }
 .video-insert:hover {
-  background: #34d399;
-  border-color: #34d399;
-  color: #052e1c;
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
 }
 
 .video-ctx-menu {
@@ -4476,17 +4816,23 @@ onMounted(load);
 }
 
 .asset-tile {
-  background: var(--studio-inset);
-  border-radius: 10px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   overflow: hidden;
   min-width: 0;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+.asset-tile:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  transform: translateY(-2px);
 }
 
 .asset-tile-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px 8px;
+  padding: 10px 12px 12px;
   min-width: 0;
 }
 
@@ -4621,15 +4967,22 @@ onMounted(load);
   font: inherit;
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
+.shot-card.visual {
+  min-height: 0;
+  padding: 0;
+  overflow: hidden;
+  background: #1e1e1e;
+}
 .shot-card:hover,
 .shot-card.on {
   background: #222;
-  border-color: rgba(52, 211, 153, 0.35);
+  border-color: rgba(59, 130, 246, 0.35);
   transform: translateY(-1px);
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
-.shot-card.ready {
-  border-color: #2e2e2e;
+.shot-card.visual:hover,
+.shot-card.visual.on {
+  background: #242424;
 }
 .shot-card.add {
   background: transparent;
@@ -4641,10 +4994,13 @@ onMounted(load);
   color: #888;
   min-height: 210px;
 }
+.shot-card.add.visual {
+  min-height: 0;
+}
 .shot-card.add:hover {
-  border-color: #34d399;
-  color: #ecfdf5;
-  background: rgba(16, 185, 129, 0.06);
+  border-color: #3b82f6;
+  color: #eff6ff;
+  background: rgba(37, 99, 235, 0.06);
 }
 .shot-card.add .add-plus {
   width: 40px;
@@ -4664,33 +5020,23 @@ onMounted(load);
   margin-bottom: 10px;
   flex-shrink: 0;
 }
+.shot-card.visual .shot-card-head {
+  position: absolute;
+  inset: 0 0 auto 0;
+  z-index: 2;
+  margin: 0;
+  padding: 10px 10px 0;
+  pointer-events: none;
+}
 .shot-card .shot-no {
   font-size: 13px;
   font-weight: 650;
   color: #c8c8c8;
   letter-spacing: 0.02em;
 }
-.shot-status {
-  height: 20px;
-  padding: 0 8px;
-  border-radius: 999px;
-  font-size: 11px;
-  display: inline-flex;
-  align-items: center;
-  background: rgba(255, 255, 255, 0.06);
-  color: #a3a3a3;
-}
-.shot-status.ok {
-  background: rgba(16, 185, 129, 0.16);
-  color: #6ee7b7;
-}
-.shot-status.draft {
-  background: rgba(251, 191, 36, 0.14);
-  color: #fcd34d;
-}
-.shot-status.wait {
-  background: rgba(255, 255, 255, 0.05);
-  color: #737373;
+.shot-card.visual .shot-no {
+  color: #f2f2f2;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.65);
 }
 .shot-card .more {
   width: 28px;
@@ -4710,6 +5056,12 @@ onMounted(load);
   opacity: 0;
   transition: opacity 0.15s ease, background 0.15s ease;
 }
+.shot-card.visual .more {
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.35);
+  color: #eee;
+  border-radius: 6px;
+}
 .shot-card:hover .more,
 .shot-card.on .more,
 .shot-card .more:focus-visible {
@@ -4719,29 +5071,51 @@ onMounted(load);
   background: rgba(255, 255, 255, 0.08);
   color: #eee;
 }
-.shot-card .shot-text {
-  margin: 0;
-  font-size: 12px;
-  line-height: 1.55;
-  color: #e8e8e8;
-  white-space: pre-wrap;
-  word-break: break-word;
-  display: -webkit-box;
-  -webkit-line-clamp: 9;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  flex: 1;
+.shot-card.visual .more:hover {
+  background: rgba(0, 0, 0, 0.55);
 }
-.shot-empty-body {
-  flex: 1;
+.shot-face {
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  color: #737373;
-  font-size: 13px;
-  min-height: 120px;
+  position: relative;
+}
+.shot-face img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.shot-face-hint {
+  margin: 0;
+  padding: 28px 16px 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #d4d4d4;
+  text-align: center;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.shot-dur {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 2;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #eee;
+  font-size: 11px;
+  font-weight: 650;
+  display: inline-flex;
+  align-items: center;
 }
 
 .shot-menu-mask {
@@ -4806,6 +5180,141 @@ onMounted(load);
   min-height: 0;
   overflow: hidden;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+.shot-editor.wide {
+  width: min(1080px, 100%);
+  height: min(820px, 94vh);
+}
+.se-split {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(280px, 1.1fr);
+  gap: 0;
+}
+.se-keyframe {
+  padding: 16px 16px 18px;
+  border-right: 1px solid #2a2a2a;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  gap: 12px;
+}
+.se-kf-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.se-kf-preview {
+  width: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0a0a0a;
+  border: 1px solid #2a2a2a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.se-kf-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.se-kf-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.se-fields {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.se-fields-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.se-fields-scroll :deep(.el-scrollbar__view) {
+  padding: 8px 18px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.se-toolbar.compact {
+  padding: 4px 0 8px;
+  border-bottom: 0;
+}
+.se-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: #a3a3a3;
+}
+.se-field input,
+.se-field textarea,
+.se-field select {
+  width: 100%;
+  border: 1px solid #2e2e2e;
+  border-radius: 8px;
+  background: #121212;
+  color: #eee;
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  outline: none;
+}
+.se-field textarea {
+  resize: vertical;
+  line-height: 1.55;
+  min-height: 64px;
+}
+.se-row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px;
+}
+.se-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.se-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #121212;
+  border: 1px solid #2e2e2e;
+  cursor: pointer;
+}
+.se-chip em {
+  font-style: normal;
+  color: #ddd;
+  font-size: 12px;
+}
+.se-chip input {
+  margin: 0;
+}
+.muted {
+  color: #737373;
+  font-size: 12px;
+}
+@media (max-width: 840px) {
+  .se-split {
+    grid-template-columns: 1fr;
+  }
+  .se-keyframe {
+    border-right: 0;
+    border-bottom: 1px solid #2a2a2a;
+  }
 }
 .se-head {
   display: flex;
@@ -5000,8 +5509,8 @@ onMounted(load);
   white-space: nowrap;
 }
 .ve-modes button.on {
-  background: rgba(107, 207, 107, 0.16);
-  color: #6bcf6b;
+  background: rgba(59, 130, 246, 0.16);
+  color: #3b82f6;
   font-weight: 600;
 }
 
@@ -5016,11 +5525,21 @@ onMounted(load);
 .ve-left {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  padding: 14px 14px 16px;
+  gap: 0;
+  padding: 0;
   border-right: 1px solid #2a2a2a;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+.ve-left-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.ve-left-scroll :deep(.el-scrollbar__view) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 14px 16px;
 }
 .ve-tip {
   margin: 0;
@@ -5157,8 +5676,8 @@ onMounted(load);
   padding: 0 10px;
   border: 0;
   border-radius: 8px;
-  background: rgba(107, 207, 107, 0.12);
-  color: #6bcf6b;
+  background: rgba(59, 130, 246, 0.12);
+  color: #3b82f6;
   font: inherit;
   font-size: 12px;
   display: inline-flex;
@@ -5167,7 +5686,7 @@ onMounted(load);
   cursor: pointer;
 }
 .ve-gen-prompt:hover {
-  background: rgba(107, 207, 107, 0.2);
+  background: rgba(59, 130, 246, 0.2);
 }
 
 .ve-controls {
@@ -5190,7 +5709,7 @@ onMounted(load);
   height: 42px;
   border: 0;
   border-radius: 10px;
-  background: #6bcf6b;
+  background: #3b82f6;
   color: #111;
   font: inherit;
   font-size: 14px;
@@ -5282,10 +5801,14 @@ onMounted(load);
   gap: 4px;
   cursor: pointer;
 }
+.ve-hist-scroll {
+  flex: 1;
+  min-height: 0;
+}
 .ve-history {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -5302,7 +5825,7 @@ onMounted(load);
   cursor: pointer;
 }
 .ve-hist.on {
-  border-color: #6bcf6b;
+  border-color: #3b82f6;
 }
 .ve-hist video {
   width: 100%;
@@ -5319,7 +5842,7 @@ onMounted(load);
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: #6bcf6b;
+  background: #3b82f6;
   color: #111;
   display: grid;
   place-items: center;
@@ -5332,12 +5855,18 @@ onMounted(load);
 
 .ve-strip {
   flex-shrink: 0;
-  display: flex;
-  gap: 10px;
+  overflow: hidden;
   padding: 12px 16px;
   border-top: 1px solid #2a2a2a;
-  overflow-x: auto;
   background: #161616;
+}
+.ve-strip-scroll {
+  height: 96px;
+}
+.ve-strip-inner {
+  display: flex;
+  gap: 10px;
+  width: max-content;
 }
 .ve-strip-card {
   width: 112px;
@@ -5367,8 +5896,8 @@ onMounted(load);
   border: 1px solid #2e2e2e;
 }
 .ve-strip-card.on .ve-strip-face {
-  border-color: #6bcf6b;
-  box-shadow: 0 0 0 1px #6bcf6b;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 1px #3b82f6;
 }
 .ve-strip-face video {
   width: 100%;
@@ -5399,6 +5928,7 @@ onMounted(load);
   padding: 12px 16px;
   border-bottom: 1px solid #2a2a2a;
   flex-shrink: 0;
+  min-width: 0;
 }
 .ae-back {
   width: 32px;
@@ -5415,8 +5945,9 @@ onMounted(load);
   background: #222;
 }
 .ae-title {
+  flex: 1;
+  min-width: 0;
   font-size: 15px;
-  max-width: 42vw;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5425,32 +5956,67 @@ onMounted(load);
   font-style: normal;
   font-size: 12px;
   color: #888;
+  flex-shrink: 0;
 }
 .ae-top-actions {
   margin-left: auto;
   display: flex;
+  flex-shrink: 0;
   gap: 8px;
+}
+.asset-editor-mask .pill-btn {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: #262626;
+  color: #eee;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.asset-editor-mask .pill-btn.primary {
+  background: #2563eb;
+  color: #fff;
+  font-weight: 650;
+}
+.asset-editor-mask .pill-btn.primary:hover {
+  background: #3b82f6;
 }
 
 .ae-body {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr) 120px;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) 168px;
   gap: 0;
 }
 
 .ae-left {
   border-right: 1px solid #2a2a2a;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.ae-left-scroll {
+  flex: 1;
+  min-height: 0;
+}
+.ae-left-scroll :deep(.el-scrollbar__view) {
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  min-height: 0;
-  overflow: auto;
 }
 .ae-tabs {
   display: flex;
+  flex-shrink: 0;
   gap: 0;
   border-bottom: 1px solid #2a2a2a;
   margin-bottom: 4px;
@@ -5466,8 +6032,8 @@ onMounted(load);
   cursor: pointer;
 }
 .ae-tabs button.on {
-  color: #6bcf6b;
-  box-shadow: inset 0 -2px 0 #6bcf6b;
+  color: #3b82f6;
+  box-shadow: inset 0 -2px 0 #3b82f6;
 }
 .ae-tabs button:disabled {
   opacity: 0.45;
@@ -5475,11 +6041,14 @@ onMounted(load);
 }
 
 .ae-ref {
-  height: 72px;
-  border: 1px dashed #444;
+  flex-shrink: 0;
+  min-height: 72px;
+  height: auto;
+  padding: 10px 12px;
+  border: 1px dashed #3b82f6;
   border-radius: 10px;
-  background: #1a1a1a;
-  color: #999;
+  background: rgba(59, 130, 246, 0.08);
+  color: #dbeafe;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -5499,13 +6068,15 @@ onMounted(load);
 .ae-field {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   gap: 6px;
   font-size: 12px;
   color: #999;
 }
 .ae-field.grow {
   flex: 1;
-  min-height: 160px;
+  flex-shrink: 1;
+  min-height: 96px;
 }
 .ae-prompt {
   flex: 1;
@@ -5530,11 +6101,12 @@ onMounted(load);
   color: #666;
 }
 .ae-gen {
+  flex-shrink: 0;
   height: 42px;
   border: 0;
   border-radius: 10px;
-  background: #6bcf6b;
-  color: #111;
+  background: #3b82f6;
+  color: #fff;
   font: inherit;
   font-size: 14px;
   font-weight: 700;
@@ -5555,7 +6127,7 @@ onMounted(load);
 }
 .ae-preview {
   flex: 1;
-  min-height: 280px;
+  min-height: 0;
   border-radius: 12px;
   overflow: hidden;
   background: #0c0c0c;
@@ -5566,8 +6138,35 @@ onMounted(load);
 .ae-preview.empty {
   color: #777;
   font-size: 13px;
-  padding: 24px;
+  padding: 16px;
   text-align: center;
+  border-style: dashed;
+  border-color: #3a3a3a;
+}
+.ae-preview-upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: min(280px, 100%);
+  min-height: 160px;
+  padding: 24px 16px;
+  border: 1px dashed #3b82f6;
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.08);
+  color: #e2e8f0;
+  cursor: pointer;
+  font: inherit;
+}
+.ae-preview-upload strong {
+  font-size: 15px;
+  font-weight: 650;
+  color: #fff;
+}
+.ae-preview-upload span {
+  font-size: 12px;
+  color: #93c5fd;
 }
 .ae-preview img {
   width: 100%;
@@ -5577,6 +6176,7 @@ onMounted(load);
 }
 .ae-tools {
   display: flex;
+  flex-shrink: 0;
   flex-wrap: wrap;
   gap: 8px;
 }
@@ -5591,6 +6191,11 @@ onMounted(load);
   font-size: 12px;
   cursor: pointer;
 }
+.ae-tools button.on {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+}
 .ae-tools button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -5598,32 +6203,41 @@ onMounted(load);
 
 .ae-right {
   border-left: 1px solid #2a2a2a;
-  padding: 14px 10px;
+  padding: 14px 12px;
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 148px;
   min-height: 0;
 }
 .ae-right strong {
+  flex-shrink: 0;
   font-size: 13px;
 }
 .ae-upload {
-  height: 32px;
-  border: 1px solid #3a3a3a;
+  flex-shrink: 0;
+  width: 100%;
+  height: 40px;
+  border: 1px dashed #3b82f6;
   border-radius: 8px;
-  background: transparent;
-  color: #ccc;
+  background: rgba(59, 130, 246, 0.1);
+  color: #dbeafe;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   cursor: pointer;
 }
+.ae-hist-scroll {
+  flex: 1;
+  min-height: 0;
+}
 .ae-history {
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -5638,7 +6252,7 @@ onMounted(load);
   overflow: hidden;
 }
 .ae-hist.on {
-  border-color: #6bcf6b;
+  border-color: #3b82f6;
 }
 .ae-hist img {
   width: 100%;
@@ -5653,7 +6267,7 @@ onMounted(load);
   width: 16px;
   height: 16px;
   border-radius: 999px;
-  background: #6bcf6b;
+  background: #3b82f6;
   color: #111;
   display: grid;
   place-items: center;
@@ -5667,11 +6281,17 @@ onMounted(load);
 
 .ae-strip {
   flex-shrink: 0;
-  display: flex;
-  gap: 10px;
-  overflow-x: auto;
+  overflow: hidden;
   padding: 12px 16px 16px;
   border-top: 1px solid #2a2a2a;
+}
+.ae-strip-scroll {
+  height: 108px;
+}
+.ae-strip-inner {
+  display: flex;
+  gap: 10px;
+  width: max-content;
 }
 .ae-strip-card {
   width: 120px;
@@ -5694,7 +6314,7 @@ onMounted(load);
   margin-bottom: 6px;
 }
 .ae-strip-card.on .ae-strip-face {
-  border-color: #6bcf6b;
+  border-color: #3b82f6;
 }
 .ae-strip-face img {
   width: 100%;
@@ -5721,10 +6341,33 @@ onMounted(load);
 
 @media (max-width: 1100px) {
   .ae-body {
-    grid-template-columns: 260px minmax(0, 1fr);
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr) 148px;
+  }
+  .ae-count {
+    display: none;
+  }
+}
+@media (max-width: 860px) {
+  .ae-body {
+    grid-template-columns: 1fr;
+    overflow: hidden;
   }
   .ae-right {
-    display: none;
+    min-width: 0;
+    border-left: 0;
+    border-top: 1px solid #2a2a2a;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .ae-upload {
+    width: auto;
+    min-width: 120px;
+    padding: 0 14px;
+  }
+  .ae-history {
+    flex: 1;
+    flex-direction: row;
   }
 }
 
@@ -5905,8 +6548,12 @@ onMounted(load);
   cursor: pointer;
 }
 
+.novel-scroll {
+  flex: 1;
+  min-height: 0;
+}
 .novel-list {
-  overflow: auto;
+  overflow: hidden;
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -5939,7 +6586,7 @@ onMounted(load);
 @media (max-width: 960px) {
   .film-workspace {
     grid-template-columns: 1fr;
-    overflow: auto;
+    overflow: hidden;
   }
 
   .work-main {
@@ -5953,8 +6600,9 @@ onMounted(load);
 
   .step-list {
     flex-direction: row;
-    overflow-x: auto;
+    overflow: visible;
     gap: 4px;
+    width: max-content;
   }
 
   .step-item {
@@ -5979,6 +6627,9 @@ onMounted(load);
     max-height: 42vh;
     border-right: 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .ai-assist-scroll {
+    max-height: 42vh;
   }
   .action-center {
     position: static;
@@ -6008,5 +6659,58 @@ onMounted(load);
 .video-step {
   max-width: 1180px;
   margin: 0 auto;
+}
+</style>
+
+<style>
+/* Teleport 到 body，需非 scoped */
+.mode-hover-pop {
+  position: fixed;
+  z-index: 3200;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #141414;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  text-align: left;
+  pointer-events: auto;
+}
+.mode-hover-pop .mode-hover-media {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #0a0a0a;
+  aspect-ratio: 16 / 10;
+  margin-bottom: 10px;
+}
+.mode-hover-pop .mode-cover,
+.mode-hover-pop .mode-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mode-hover-pop .mode-cover {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+.mode-hover-pop:has(.mode-video.on) .mode-cover {
+  opacity: 0;
+}
+.mode-hover-pop .mode-video {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+.mode-hover-pop .mode-video.on {
+  opacity: 1;
+}
+.mode-hover-pop p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #f2f2f2;
 }
 </style>

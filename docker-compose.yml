@@ -1,9 +1,31 @@
 # 本机构建用（同样不依赖 .env；数据在 ./config）
 #   docker compose up -d --build
+# 仅启动 MinIO（本地 npm 开发）：
+#   docker compose up -d minio
 
 name: ai-video-studio
 
 services:
+  minio:
+    image: minio/minio:latest
+    container_name: ai-video-studio-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - ./config/minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   ai-video-studio:
     build:
       context: .
@@ -11,6 +33,9 @@ services:
     image: ai-video-studio:local
     container_name: ai-video-studio
     restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
     ports:
       - "9088:80"
     volumes:
@@ -23,7 +48,15 @@ services:
       TYPEORM_SYNCHRONIZE: "true"
       CORS_ORIGIN: "*"
       REDIS_URL: redis://127.0.0.1:6379
-      STORAGE_MODE: local
+      STORAGE_MODE: minio
+      # 浏览器读直链（宿主机端口）
+      FILE_OSS_BASE_URL: http://127.0.0.1:9000
+      # 容器内 S3 API
+      FILE_OSS_API_ENDPOINT: http://minio:9000
+      FILE_OSS_BUCKET: aivideo
+      FILE_OSS_ACCESS_KEY_ID: minioadmin
+      FILE_OSS_ACCESS_KEY_SECRET: minioadmin
+      FILE_OSS_KEY_PREFIX: ai/video-studio
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/health || exit 1"]
       interval: 30s

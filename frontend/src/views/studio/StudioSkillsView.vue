@@ -129,7 +129,7 @@
         </div>
 
         <div class="detail-panel">
-          <div class="detail-scroll">
+          <UiScroll class="detail-scroll" always>
             <div class="detail-cats">
               <span v-if="detail.official" class="cat-pill">官方</span>
               <span v-if="modeLabel(detail)" class="cat-pill">{{ modeLabel(detail) }}</span>
@@ -171,7 +171,7 @@
                 <div class="prompt-body md-body" v-html="detailPromptHtml" />
               </UiScroll>
             </div>
-          </div>
+          </UiScroll>
 
           <div class="detail-footer">
             <span class="footer-hint">
@@ -800,8 +800,10 @@ onMounted(async () => {
 .detail-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding-right: 8px;
+}
+.detail-scroll :deep(.el-scrollbar__view) {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -956,7 +958,7 @@ onMounted(async () => {
   padding: 10px 12px;
   border-radius: 8px;
   background: rgba(0, 0, 0, 0.35);
-  overflow: auto;
+  overflow: visible;
 }
 .prompt-body :deep(pre code) {
   padding: 0;

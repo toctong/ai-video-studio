@@ -1,6 +1,6 @@
 import type { WorkflowDocument, WorkflowEdge, WorkflowGroup, WorkflowNode } from '@ai-video-studio/shared';
 import { migrateGraphV1ToDocument } from '@ai-video-studio/shared';
-import { GROUP_COLORS } from '@/utils/workflow-flow';
+import { GROUP_COLORS } from '@/utils/group-colors';
 import { prependStyleLock } from '@/utils/style-lock';
 import { buildCharacterModule, buildSceneModule } from '@/utils/workflow-subgraphs';
 

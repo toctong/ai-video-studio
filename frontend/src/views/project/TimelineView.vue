@@ -16,6 +16,7 @@
       </div>
     </header>
 
+    <UiScroll class="timeline-scroll" always>
     <section v-if="timelineNote" class="overview-strip">
       <div class="overview-label">故事总览</div>
       <p class="overview-text">{{ timelineNote }}</p>
@@ -49,6 +50,7 @@
         </article>
       </li>
     </ol>
+    </UiScroll>
   </div>
 </template>
 
@@ -58,6 +60,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import api from '@/api';
 import { useProjectStore } from '@/stores/project';
+import { UiScroll } from '@/components/ui';
 
 type TimelineNode = {
   id: string;
@@ -156,7 +159,11 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+.timeline-scroll {
+  flex: 1;
+  min-height: 0;
 }
 .tool-head {
   display: flex;

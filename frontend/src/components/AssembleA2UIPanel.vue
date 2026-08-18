@@ -28,6 +28,7 @@ import { createProjectFromAssembleDraft } from '@/composables/useAssembleCreate'
 import { markOutlinePending } from '@/utils/outline-pending';
 import { resetCardFresh } from '@/a2ui/card-motion';
 import BookScalePicker from '@/components/BookScalePicker.vue';
+import { UiScroll } from '@/components/ui';
 import {
   DEFAULT_BOOK_SCALE,
   formatBookScaleIdeaBlock,
@@ -2157,7 +2158,8 @@ onUnmounted(() => {
       >{{ formatBookScaleLabel(bookScale) }}</span>
     </div>
 
-    <div class="chat-scroll">
+    <UiScroll class="chat-scroll" always>
+      <div class="chat-scroll-inner">
       <div
         v-for="turn in turns"
         :key="turn.id"
@@ -2221,7 +2223,8 @@ onUnmounted(() => {
       </div>
 
       <div ref="chatEnd" class="chat-end" />
-    </div>
+      </div>
+    </UiScroll>
 
     <button
       v-if="showSettingsFab && !settingsDrawer"
@@ -2248,7 +2251,7 @@ onUnmounted(() => {
       :destroy-on-close="false"
     >
       <div class="settings-drawer-body">
-        <div class="settings-scroll">
+        <UiScroll class="settings-scroll" always>
           <section v-if="lane === 'quick' && quickReady" class="settings-section">
             <header class="settings-section-head">
               <strong>当前设定</strong>
@@ -2277,7 +2280,7 @@ onUnmounted(() => {
             </header>
             <BookScalePicker v-model="bookScale" embedded />
           </section>
-        </div>
+        </UiScroll>
 
         <footer v-if="lane === 'quick' && quickReady" class="settings-footer">
           <p class="qc-hint">
@@ -2312,7 +2315,7 @@ onUnmounted(() => {
           @input="resizeComposer"
         />
         <div class="prompt-bar">
-          <div class="bar-tools">
+          <UiScroll class="bar-tools" horizontal always>
             <button
               v-if="lane === 'path'"
               type="button"
@@ -2346,7 +2349,7 @@ onUnmounted(() => {
               </label>
               <span class="bar-hint">AI 引导对话开书</span>
             </template>
-          </div>
+          </UiScroll>
           <button
             type="button"
             class="send-btn"
@@ -2501,7 +2504,9 @@ onUnmounted(() => {
 .chat-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+.chat-scroll-inner {
   padding: 12px clamp(36px, 8vw, 96px) 28px;
   display: flex;
   flex-direction: column;
@@ -2998,7 +3003,9 @@ onUnmounted(() => {
 .settings-scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+.settings-scroll :deep(.el-scrollbar__view) {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -3085,17 +3092,18 @@ onUnmounted(() => {
   gap: 10px;
 }
 .bar-tools {
+  min-width: 0;
+  flex: 1;
+  height: 40px;
+  overflow: hidden;
+}
+.bar-tools :deep(.el-scrollbar__view) {
   display: flex;
   flex-wrap: nowrap;
   align-items: center;
   gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  width: max-content;
   padding-bottom: 2px;
-}
-.bar-tools::-webkit-scrollbar {
-  display: none;
 }
 .tool {
   display: inline-flex;

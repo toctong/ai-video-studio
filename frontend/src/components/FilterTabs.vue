@@ -20,10 +20,12 @@
         </svg>
       </button>
 
-      <div
+      <UiScroll
         ref="scroller"
         class="filter-tabs"
         :class="{ 'fade-left': canLeft, 'fade-right': canRight }"
+        horizontal
+        always
         role="tablist"
         @wheel.prevent="onWheel"
         @scroll="updateNav"
@@ -41,7 +43,7 @@
           <span>{{ opt.label }}</span>
           <em v-if="opt.count != null">{{ opt.count }}</em>
         </button>
-      </div>
+      </UiScroll>
 
       <button
         v-show="canRight"
@@ -68,11 +70,16 @@
 
 <script setup lang="ts">
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { UiScroll } from '@/components/ui';
 
 export type FilterTabOption = {
   value: string;
   label: string;
   count?: number;
+};
+
+type ScrollHandle = {
+  wrapEl: () => HTMLElement | undefined;
 };
 
 const props = defineProps<{
@@ -84,13 +91,17 @@ const emit = defineEmits<{
   'update:modelValue': [value: string];
 }>();
 
-const scroller = ref<HTMLElement | null>(null);
+const scroller = ref<ScrollHandle | null>(null);
 const canLeft = ref(false);
 const canRight = ref(false);
 let ro: ResizeObserver | null = null;
 
+function wrap() {
+  return scroller.value?.wrapEl?.();
+}
+
 function updateNav() {
-  const el = scroller.value;
+  const el = wrap();
   if (!el) {
     canLeft.value = false;
     canRight.value = false;
@@ -103,14 +114,14 @@ function updateNav() {
 }
 
 function scrollBy(dir: number) {
-  const el = scroller.value;
+  const el = wrap();
   if (!el) return;
   const step = Math.max(180, Math.floor(el.clientWidth * 0.65));
   el.scrollBy({ left: dir * step, behavior: 'smooth' });
 }
 
 function onWheel(e: WheelEvent) {
-  const el = scroller.value;
+  const el = wrap();
   if (!el) return;
   if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
     el.scrollLeft += e.deltaY;
@@ -121,7 +132,7 @@ function onWheel(e: WheelEvent) {
 }
 
 function bind() {
-  const el = scroller.value;
+  const el = wrap();
   if (!el) return;
   ro?.disconnect();
   ro = new ResizeObserver(() => updateNav());
@@ -129,7 +140,8 @@ function bind() {
   updateNav();
 }
 
-onMounted(() => {
+onMounted(async () => {
+  await nextTick();
   bind();
   window.addEventListener('resize', updateNav);
 });
@@ -143,6 +155,7 @@ watch(
   () => props.options,
   async () => {
     await nextTick();
+    bind();
     updateNav();
   },
   { deep: true },
@@ -152,7 +165,7 @@ watch(
   () => props.modelValue,
   async () => {
     await nextTick();
-    const el = scroller.value;
+    const el = wrap();
     if (!el) return;
     const active = el.querySelector('.tab.on') as HTMLElement | null;
     active?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
@@ -181,16 +194,16 @@ watch(
 .filter-tabs {
   flex: 1;
   min-width: 0;
+  height: 38px;
+  overflow: hidden;
+}
+.filter-tabs :deep(.el-scrollbar__view) {
   display: flex;
   gap: 8px;
-  overflow-x: auto;
-  overflow-y: hidden;
+  width: max-content;
+  min-height: 34px;
+  align-items: center;
   padding: 2px 34px;
-  scrollbar-width: none;
-  scroll-behavior: smooth;
-}
-.filter-tabs::-webkit-scrollbar {
-  display: none;
 }
 .filter-tabs.fade-left {
   mask-image: linear-gradient(90deg, transparent 0, #000 40px, #000 calc(100% - 40px), transparent);

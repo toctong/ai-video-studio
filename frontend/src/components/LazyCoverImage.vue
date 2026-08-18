@@ -4,7 +4,7 @@
     :src="src"
     :fit="fit"
     :alt="alt"
-    lazy
+    :lazy="!eager"
     :hide-on-click-modal="true"
   >
     <template #placeholder>
@@ -32,11 +32,14 @@ withDefaults(
     src?: string;
     alt?: string;
     fit?: 'fill' | 'contain' | 'cover' | 'none' | 'scale-down';
+    /** 首屏关键图不走懒加载 */
+    eager?: boolean;
   }>(),
   {
     src: '',
     alt: '',
     fit: 'cover',
+    eager: false,
   },
 );
 </script>

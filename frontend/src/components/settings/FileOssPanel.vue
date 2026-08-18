@@ -5,7 +5,7 @@
         <div>
           <div class="foss-title">MinIO 对象存储</div>
           <div class="foss-sub">
-            图 / 视频永久直链（S3 兼容）。未配置时系统不可用（登录与本设置页除外）。
+            图 / 视频永久直链（S3 兼容）。推荐本地 Docker MinIO；未配 Key 时回落本地磁盘。
           </div>
         </div>
         <el-tag v-if="configured" size="small" type="success" effect="plain">已配置</el-tag>
@@ -17,7 +17,14 @@
         type="warning"
         show-icon
         :closable="false"
-        title="请填写桶名与 MinIO AccessKey，并保存后测试连通，方可使用画布与素材功能"
+        title="请填写桶名与 MinIO AccessKey，并保存后测试连通"
+        style="margin-bottom: 14px"
+      />
+      <el-alert
+        type="info"
+        show-icon
+        :closable="false"
+        title="本地开发：npm run minio 后点「填入本地 MinIO 默认值」，控制台 http://127.0.0.1:9001"
         style="margin-bottom: 14px"
       />
 
@@ -77,6 +84,7 @@
         </el-form-item>
 
         <div class="foss-actions">
+          <el-button @click="fillLocalMinioDefaults">填入本地 MinIO 默认值</el-button>
           <el-button :loading="testing" @click="test">测试连通</el-button>
           <el-button type="primary" :loading="saving" @click="save">保存对象存储</el-button>
         </div>
@@ -135,6 +143,16 @@ function hydrate() {
 }
 
 watch(() => props.settings?.fileOss, hydrate, { immediate: true, deep: true });
+
+function fillLocalMinioDefaults() {
+  draft.baseUrl = 'http://127.0.0.1:9000';
+  draft.apiEndpoint = 'http://127.0.0.1:9000';
+  draft.bucket = 'aivideo';
+  draft.keyPrefix = draft.keyPrefix || 'ai/video-studio';
+  draft.accessKeyId = 'minioadmin';
+  draft.accessKeySecret = 'minioadmin';
+  ElMessage.success('已填入本地 MinIO 默认值，请保存并测试连通');
+}
 
 async function save() {
   if (!String(draft.baseUrl || '').trim()) {

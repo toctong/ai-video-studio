@@ -197,7 +197,7 @@ export function buildSceneModule(opts: {
         y: gy,
         width: 520,
         height: 280,
-        color: '#10b981',
+        color: '#2563eb',
       },
     ],
     sceneImageId: imgId,

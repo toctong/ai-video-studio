@@ -1,22 +1,46 @@
-# 单文件部署：无需 .env
+# 单文件部署：应用 + MinIO（无需 .env）
 # 目录约定（在仓库/部署根目录执行）：
-#   ./config  → 容器 /app/data（库、上传、内置 Redis）
+#   ./config          → 容器 /app/data（库、上传、内置 Redis）
+#   ./config/minio    → MinIO 对象数据
 # 镜像内已含 Redis（BullMQ），不必再配 REDIS_URL
 #
 # 启动：
-#   docker compose pull && docker compose up -d
+#   docker compose -f docker-compose.hub.yml pull && docker compose -f docker-compose.hub.yml up -d
 # 日志：
-#   docker compose logs -f
+#   docker compose -f docker-compose.hub.yml logs -f
 # 更新：
-#   docker compose pull && docker compose up -d
+#   docker compose -f docker-compose.hub.yml pull && docker compose -f docker-compose.hub.yml up -d
 
 name: ai-video-studio
 
 services:
+  minio:
+    image: minio/minio:latest
+    container_name: ai-video-studio-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    volumes:
+      - ./config/minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
   ai-video-studio:
     image: liuxiaodi2026/ai-video-studio:latest
     container_name: ai-video-studio
     restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
     ports:
       - "9088:80"
     volumes:
@@ -26,7 +50,13 @@ services:
       ADMIN_PASSWORD: admin123
       JWT_SECRET: aivideo-local-jwt-secret-do-not-use-in-prod
       SETTINGS_SECRET: aivideo-local-settings-secret-do-not-use-in-prod
-      STORAGE_MODE: local
+      STORAGE_MODE: minio
+      FILE_OSS_BASE_URL: http://127.0.0.1:9000
+      FILE_OSS_API_ENDPOINT: http://minio:9000
+      FILE_OSS_BUCKET: aivideo
+      FILE_OSS_ACCESS_KEY_ID: minioadmin
+      FILE_OSS_ACCESS_KEY_SECRET: minioadmin
+      FILE_OSS_KEY_PREFIX: ai/video-studio
       TYPEORM_SYNCHRONIZE: "false"
       CORS_ORIGIN: "*"
       REDIS_URL: redis://127.0.0.1:6379

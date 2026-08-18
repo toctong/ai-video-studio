@@ -14,7 +14,12 @@
             :tabindex="slideRole(i) === 'hidden' ? -1 : 0"
             @click="onHeroSlideClick(i, b)"
           >
-            <img class="hero-slide__img" :src="b.cover" :alt="b.title" draggable="false" loading="lazy" />
+            <LazyCoverImage
+              class="hero-slide__img"
+              :src="b.cover"
+              :alt="b.title"
+              :eager="slideRole(i) !== 'hidden'"
+            />
           </button>
         </div>
         <div class="hero-dots" role="tablist" aria-label="轮播指示">
@@ -41,7 +46,7 @@
           :class="card.tone"
           @click="goPath(card.path)"
         >
-          <img v-if="card.cover" class="entry-bg" :src="card.cover" alt="" loading="lazy" />
+          <LazyCoverImage v-if="card.cover" class="entry-bg" :src="card.cover" alt="" />
           <span class="entry-shade" aria-hidden="true" />
           <div class="entry-visual" aria-hidden="true">
             <span v-if="card.icon === 'plus'" class="entry-plus">+</span>
@@ -85,15 +90,21 @@
             @click="openShowcase(item)"
           >
             <div class="work-thumb">
-              <video
+              <LazyVideo
                 v-if="item.mediaKind === 'video' && item.url"
+                class="work-video"
                 :src="item.url"
-                muted
-                playsinline
-                preload="metadata"
               />
-              <img v-else-if="item.url" :src="item.url" :alt="item.title" loading="lazy" />
-              <img v-else-if="item.cover" :src="item.cover" :alt="item.title" loading="lazy" />
+              <LazyCoverImage
+                v-else-if="item.url"
+                :src="item.url"
+                :alt="item.title"
+              />
+              <LazyCoverImage
+                v-else-if="item.cover"
+                :src="item.cover"
+                :alt="item.title"
+              />
               <span v-else class="empty-thumb">{{ item.placeholder }}</span>
               <span class="work-tag">{{ item.subtitle }}</span>
             </div>
@@ -130,6 +141,9 @@ import { ElMessage } from 'element-plus';
 import { listGenerateAssets, type GenerateAssetItem } from '@/api/generate';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import type { IconName } from '@/components/icons/types';
+import { namiAsset } from '@/constants/oss-public';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
+import LazyVideo from '@/components/LazyVideo.vue';
 
 type ShowcaseItem = {
   id: string;
@@ -168,7 +182,7 @@ const banners: Banner[] = [
     title: 'Seedance 2.5 首发上线',
     desc: '限时特惠 · 从剧本到成片一条流水线',
     path: '/films?new=1',
-    cover: '/nami/banners/banner-01.png',
+    cover: namiAsset('banners/banner-01.png'),
   },
   {
     id: 'seedream',
@@ -176,7 +190,7 @@ const banners: Banner[] = [
     title: 'Seedream 5.0 上线',
     desc: '角色与场景一致性更强，短剧广告更稳',
     path: '/generate',
-    cover: '/nami/banners/banner-02.png',
+    cover: namiAsset('banners/banner-02.png'),
   },
   {
     id: 'pipeline',
@@ -184,7 +198,7 @@ const banners: Banner[] = [
     title: '六步大片流水线',
     desc: '剧本 · 设定 · 资产 · 分镜 · 视频 · 预览',
     path: '/films?new=1',
-    cover: '/nami/banners/banner-03.png',
+    cover: namiAsset('banners/banner-03.png'),
   },
   {
     id: 'studio',
@@ -192,7 +206,7 @@ const banners: Banner[] = [
     title: 'AI 视频创作工作台',
     desc: '参考生视频 · 图生视频 · 文生视频',
     path: '/generate',
-    cover: '/nami/banners/banner-04.png',
+    cover: namiAsset('banners/banner-04.png'),
   },
   {
     id: 'assets',
@@ -200,7 +214,7 @@ const banners: Banner[] = [
     title: '资产库统一管理',
     desc: '图片、视频、角色与场景素材集中沉淀',
     path: '/assets',
-    cover: '/nami/banners/banner-05.png',
+    cover: namiAsset('banners/banner-05.png'),
   },
 ];
 
@@ -220,7 +234,7 @@ const entryCards: Array<{
     desc: '精品短剧、短片、商业广告、文旅宣传…',
     icon: 'plus',
     tone: 'tone-film',
-    cover: '/nami/entry/film.png',
+    cover: namiAsset('entry/film.png'),
   },
   {
     path: '/generate',
@@ -228,16 +242,16 @@ const entryCards: Array<{
     desc: '全能参考生视频，支持真人出镜',
     icon: 'clapperboard',
     tone: 'tone-video',
-    badgeImg: '/nami/entry/seedanceBadge.png',
-    cover: '/nami/entry/aiVideo.png',
+    badgeImg: namiAsset('entry/seedanceBadge.png'),
+    cover: namiAsset('entry/aiVideo.png'),
   },
   {
-    path: '/films?new=1',
+    path: '/films?new=1&from=article',
     title: '文章转视频',
     desc: '输入文章 / 一句话，生成完整短片',
     icon: 'file-text',
     tone: 'tone-article',
-    cover: '/nami/entry/article.png',
+    cover: namiAsset('entry/article.png'),
   },
   {
     path: '/tools',
@@ -245,7 +259,7 @@ const entryCards: Array<{
     desc: '剧本分集、AI 视频、AI 生图等',
     icon: 'terminal',
     tone: 'tone-more',
-    cover: '/nami/entry/tools.png',
+    cover: namiAsset('entry/tools.png'),
   },
 ];
 
@@ -266,7 +280,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '商业广告',
     category: 'ad',
     url: '',
-    cover: '/nami/works/work-01.webp',
+    cover: namiAsset('works/work-01.webp'),
     mediaKind: 'cover',
     target: '/generate',
   },
@@ -276,7 +290,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '商业广告',
     category: 'ad',
     url: '',
-    cover: '/nami/works/work-02.webp',
+    cover: namiAsset('works/work-02.webp'),
     mediaKind: 'cover',
     target: '/generate',
   },
@@ -286,7 +300,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '历史故事',
     category: 'history',
     url: '',
-    cover: '/nami/works/work-03.webp',
+    cover: namiAsset('works/work-03.webp'),
     mediaKind: 'cover',
     target: '/films?new=1',
   },
@@ -296,7 +310,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '游戏动漫',
     category: 'anime',
     url: '',
-    cover: '/nami/works/work-04.webp',
+    cover: namiAsset('works/work-04.webp'),
     mediaKind: 'cover',
     target: '/generate',
   },
@@ -306,7 +320,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '真人短剧',
     category: 'drama',
     url: '',
-    cover: '/nami/works/work-05.webp',
+    cover: namiAsset('works/work-05.webp'),
     mediaKind: 'cover',
     target: '/films?new=1',
   },
@@ -316,7 +330,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: 'AI 图片',
     category: 'image',
     url: '',
-    cover: '/nami/works/work-06.webp',
+    cover: namiAsset('works/work-06.webp'),
     mediaKind: 'cover',
     target: '/assets',
   },
@@ -326,7 +340,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '真人短剧',
     category: 'drama',
     url: '',
-    cover: '/nami/works/work-07.webp',
+    cover: namiAsset('works/work-07.webp'),
     mediaKind: 'cover',
     target: '/films?new=1',
   },
@@ -336,7 +350,7 @@ const demoShowcase: ShowcaseItem[] = [
     subtitle: '游戏动漫',
     category: 'anime',
     url: '',
-    cover: '/nami/works/work-08.webp',
+    cover: namiAsset('works/work-08.webp'),
     mediaKind: 'cover',
     target: '/generate',
   },
@@ -448,15 +462,17 @@ onUnmounted(() => {
 /* 首页与全站深色 token 对齐 */
 .home-dashboard {
   min-height: 100%;
+  max-width: 100%;
   background: var(--studio-bg, #111);
   color: var(--studio-ink, #f5f5f5);
-  overflow: visible;
+  overflow: hidden;
 }
 .home-inner {
-  max-width: 1280px;
+  max-width: min(1280px, 100%);
   margin: 0 auto;
   padding: 16px 24px 40px;
-  overflow: visible;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .hero-carousel {
@@ -587,6 +603,11 @@ onUnmounted(() => {
   display: block;
   pointer-events: none;
 }
+.hero-slide__img :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .hero-dots {
   position: absolute;
   left: 0;
@@ -648,6 +669,11 @@ onUnmounted(() => {
   object-fit: cover;
   opacity: 0.35;
 }
+.entry-bg :deep(.el-image__inner) {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 .entry-shade {
   position: absolute;
   inset: 0;
@@ -676,8 +702,8 @@ onUnmounted(() => {
   width: 44px;
   height: 44px;
   border-radius: 999px;
-  background: #22c55e;
-  color: #052e16;
+  background: #3b82f6;
+  color: #fff;
   font-size: 28px;
   font-weight: 400;
   line-height: 1;
@@ -803,8 +829,10 @@ onUnmounted(() => {
   background: #141414;
   overflow: hidden;
 }
+.work-thumb :deep(.lazy-cover),
 .work-thumb img,
-.work-thumb video {
+.work-thumb video,
+.work-video {
   width: 100%;
   height: 100%;
   object-fit: cover;

@@ -2,10 +2,10 @@
   <div class="gen-page">
     <aside class="gen-sidebar">
       <div class="sb-head">
-        <h2>制作大片</h2>
-        <button type="button" class="sb-new" title="新会话" @click="onNewSession">
+        <h2>{{ isImageWorkbench ? 'AI 生图' : '历史记录' }}</h2>
+        <button type="button" class="sb-new" title="新对话" @click="onNewSession">
           <UiIcon name="plus" :size="16" />
-          <span>新会话</span>
+          <span>新对话</span>
         </button>
       </div>
       <div class="sb-list" v-loading="sessionsLoading">
@@ -19,7 +19,7 @@
               @click="selectSession(s.id)"
             >
               <div class="sb-thumb" :class="{ empty: !s.coverUrl }">
-                <img v-if="s.coverUrl" :src="s.coverUrl" alt="" loading="lazy" />
+                <LazyCoverImage v-if="s.coverUrl" :src="s.coverUrl" alt="" />
                 <span v-else class="sb-thumb-ico" aria-hidden="true">◇</span>
               </div>
               <div class="sb-item-main">
@@ -47,7 +47,7 @@
                 </button>
               </div>
             </div>
-            <p v-if="!sessionsLoading && !sessions.length" class="sb-empty">暂无会话，发一条消息开始</p>
+            <p v-if="!sessionsLoading && !sessions.length" class="sb-empty">还没有对话，输入提示词开始生成</p>
           </div>
         </UiScroll>
       </div>
@@ -58,8 +58,8 @@
         <UiScroll ref="feedScrollRef" class="feed-scroll" always height="100%">
           <div class="feed-inner">
             <div v-if="!activeSessionId || (!messages.length && !chatBusy)" class="gen-empty">
-              <h1>从一条灵感开始</h1>
-              <p>选 Agent、图片或视频，直接在这里生成</p>
+              <h1>{{ emptyTitle }}</h1>
+              <p>{{ emptySub }}</p>
             </div>
             <template v-else>
               <div
@@ -258,6 +258,22 @@
       </div>
 
       <div class="gen-composer">
+        <div v-if="!isImageWorkbench" class="video-mode-tabs" role="tablist" aria-label="生视频方式">
+          <button
+            v-for="m in videoWorkbenchModes"
+            :key="m.id"
+            type="button"
+            role="tab"
+            class="video-mode-tab"
+            :class="{ on: genPrefs.refMode === m.id }"
+            :aria-selected="genPrefs.refMode === m.id"
+            :title="m.desc"
+            @click="setVideoRefMode(m.id)"
+          >
+            {{ m.label }}
+            <img v-if="m.id === 'omni'" class="tab-badge" :src="seedanceBadge" alt="" />
+          </button>
+        </div>
         <div v-if="quotes.length" class="quote-bar">
           <div v-for="(q, qi) in quotes" :key="q.id" class="quote-chip" :class="q.kind">
             <img v-if="q.kind === 'image' && q.url" :src="q.url" alt="" class="quote-thumb" />
@@ -274,11 +290,11 @@
           </div>
         </div>
         <div v-if="showFramesHint" class="frames-hint">
-          <span class="fh-pill">首帧</span>
-          <span class="fh-arrow">← 参考图 1</span>
+          <span class="fh-pill">参考图 1</span>
+          <span class="fh-arrow">画面起点</span>
           <span class="fh-dot">·</span>
-          <span class="fh-pill">尾帧</span>
-          <span class="fh-arrow">← 参考图 2</span>
+          <span class="fh-pill">参考图 2</span>
+          <span class="fh-arrow">画面收束</span>
           <em>左侧上传 1～2 张图</em>
         </div>
         <div class="home-prompt">
@@ -288,7 +304,7 @@
             v-model:attachments="attachments"
             v-model:prefs="genPrefs"
             :mode="createMode"
-            :modes="homeModes"
+            :modes="composerModes"
             :models="imageModelOptions"
             :video-models="videoModelOptions"
             :chat-models="chatModelOptions"
@@ -298,25 +314,26 @@
             :loading="false"
             :disabled="false"
             :min-height="148"
-            :show-templates="createMode === 'agent'"
+            :show-templates="false"
             :templates="agentSkillTemplates"
             :template-filters="agentSkillFilters"
             :auto-apply-template="false"
             template-as-tag
             :show-prefs="true"
-            :prefs-kinds="['image', 'video']"
-            :show-mention="true"
+            :prefs-kinds="isImageWorkbench ? ['image'] : ['video']"
+            :show-mention="false"
             :show-send="false"
             :attach-labels="attachLabels"
-            :max-images="showFramesHint ? 2 : 6"
-            enable-attachments
+            :max-images="attachMax"
+            :enable-attachments="showAttachRail"
             tone="home"
+            :show-ref-mode="false"
             class="home-ai-prompt"
             @update:mode="onModeUpdate"
             @pick-template="onPickSkillTemplate"
             @submit="onSubmit"
           >
-            <template v-if="createMode !== 'agent'" #toolbar>
+            <template #toolbar>
               <button
                 type="button"
                 class="enhance-btn"
@@ -370,6 +387,7 @@ import GenerateMarkdown from '@/components/generate/GenerateMarkdown.vue';
 import GenerateMediaSlot from '@/components/generate/GenerateMediaSlot.vue';
 import GenerateThinkReply from '@/components/generate/GenerateThinkReply.vue';
 import LazyVideoThumb from '@/components/LazyVideoThumb.vue';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
 import {
   createQuoteId,
   GENERATE_QUOTE_MAX,
@@ -384,8 +402,8 @@ import { UiScroll } from '@/components/ui';
 import { useAiSettings } from '@/composables/useAiSettings';
 import { useThemeStore } from '@/stores/theme';
 import { copyText } from '@/utils/clipboard';
-import { fetchAgentsPlaza } from '@/api/plaza';
 import { skillPromptText, type CatalogSkill } from '@/utils/skill-catalog';
+import { namiAsset } from '@/constants/oss-public';
 import { useRoute, useRouter } from 'vue-router';
 import {
   cancelGenerateMessage,
@@ -407,6 +425,19 @@ import { notifyJobsChanged } from '@/api/jobs';
 type GenMediaMode = 'image' | 'video';
 
 const homeModes: PromptModeOption[] = HOME_CREATE_MODES;
+const composerModes = computed<PromptModeOption[]>(() =>
+  isImageWorkbench.value ? [{ label: '图片', value: 'image', icon: '🖼' }] : [],
+);
+
+const seedanceBadge = namiAsset('entry/seedanceBadge.png');
+
+const videoWorkbenchModes = [
+  { id: 'omni' as const, label: '全能参考', desc: '多参考图直出视频' },
+  { id: 'frames' as const, label: '图生视频', desc: '参考图生成视频' },
+  { id: 'text' as const, label: '文生视频', desc: '纯文本描述生成' },
+];
+
+const isImageWorkbench = computed(() => createMode.value === 'image');
 
 const SESSION_STORAGE_KEY = 'lumina.generate.activeSession';
 const MODE_STORAGE_KEY = 'lumina.generate.createMode';
@@ -422,8 +453,8 @@ const activeSessionId = ref('');
 const messages = ref<GenerateMessage[]>([]);
 const prompt = ref('');
 const attachments = ref<PromptImageAttachment[]>([]);
-/** 与首页一致：默认 Agent；图/视频在本页直接生成，不跳转工作流 */
-const createMode = ref('agent');
+/** 本页默认视频工作台；图/视频直接生成 */
+const createMode = ref('video');
 const genMode = ref<GenMediaMode>('video');
 const genPrefs = ref<PromptGenPrefs>(
   createDefaultPrefs({
@@ -587,14 +618,42 @@ const feedItems = computed<FeedItem[]>(() => {
 });
 
 const showFramesHint = computed(() => {
-  const videoish = createMode.value === 'video' || createMode.value === 'agent';
-  return videoish && genPrefs.value.refMode === 'frames';
+  return !isImageWorkbench.value && genPrefs.value.refMode === 'frames';
 });
 
-const attachLabels = computed(() => {
-  if (!showFramesHint.value) return undefined;
-  return { empty: '首尾帧', add: '添加帧', slotNames: ['首帧', '尾帧'] };
+const showAttachRail = computed(() => {
+  if (isImageWorkbench.value) return true;
+  return genPrefs.value.refMode !== 'text';
 });
+
+const attachMax = computed(() => (showFramesHint.value ? 2 : 6));
+
+const attachLabels = computed(() => {
+  if (isImageWorkbench.value) return undefined;
+  if (genPrefs.value.refMode === 'frames') {
+    return { empty: '参考图', add: '添加参考', slotNames: ['参考图 1', '参考图 2'] };
+  }
+  if (genPrefs.value.refMode === 'omni') {
+    return { empty: '全能参考', add: '添加参考', slotNames: ['参考 1', '参考 2', '参考 3'] };
+  }
+  return { empty: '可选参考', add: '添加参考' };
+});
+
+const emptyTitle = computed(() =>
+  isImageWorkbench.value ? '描述你想生成的画面' : '描述你想做成的画面',
+);
+
+const emptySub = computed(() => {
+  if (isImageWorkbench.value) return '文生图 / 参考生图，结果会出现在对话里';
+  if (genPrefs.value.refMode === 'frames') return '上传参考图后生成视频，适合对画面精度要求高的场景';
+  if (genPrefs.value.refMode === 'text') return '用文字描述镜头、运动与氛围，直接生成视频';
+  return '全能参考生视频，支持多张参考图，真人出镜更稳';
+});
+
+function setVideoRefMode(id: 'omni' | 'frames' | 'text') {
+  genPrefs.value = { ...genPrefs.value, refMode: id, auto: false, mediaKind: 'video' };
+  if (id === 'text') attachments.value = [];
+}
 
 function quoteMedia(m: GenerateMessage, preferUrl?: string) {
   const url = String(preferUrl || m.mediaUrl || '').trim();
@@ -622,7 +681,7 @@ function addReferenceImage(url: string, name = '参考图.png', _opts?: { silent
   ) {
     return false;
   }
-  const max = showFramesHint.value ? 2 : 6;
+  const max = attachMax.value;
   if (attachments.value.length >= max) {
     ElMessage.warning(`最多可添加 ${max} 张参考图`);
     return false;
@@ -862,37 +921,39 @@ function modelLabelOf(m: GenerateMessage) {
 }
 
 const placeholder = computed(() => {
-  if (createMode.value === 'agent') {
-    return '描述需求；要出图/出视频直接说，Agent 会识别并生成';
-  }
-  return genMode.value === 'video'
-    ? '描述你想生成的视频画面、镜头运动与节奏…'
-    : '描述你想生成的画面风格、主体与构图…';
+  if (isImageWorkbench.value) return '描述你想生成的画面风格、主体与构图…';
+  if (genPrefs.value.refMode === 'frames') return '描述参考图要演成的镜头运动与节奏…';
+  if (genPrefs.value.refMode === 'text') return '描述画面、镜头运动、节奏与氛围…';
+  return '描述你想生成的视频画面，可配合多张参考图…';
 });
 
 const placeholderHints = computed(() => {
-  if (createMode.value === 'agent') {
+  if (isImageWorkbench.value) {
     return [
-      '描述需求；要出图/出视频直接说，Agent 会识别并生成',
-      '帮我生成一张赛博朋克女主立绘，半身，干净背景…',
-      '按这个提示词出一张图：雨夜霓虹街道，潮湿反光…',
-      '做一段 10 秒雨夜追逐短视频，镜头推进，脚步溅水…',
-      '先帮我写一个国风少年拔刀的生图提示词',
+      '描述你想生成的画面风格、主体与构图…',
+      '半身定妆立绘，干净背景，精细衣纹与五官…',
+      '赛博朋克夜市，潮湿地面反光，远处全息招牌…',
+      '古风庭院雪景，朱红廊柱，一盏纸灯摇曳…',
     ];
   }
-  if (genMode.value === 'video') {
+  if (genPrefs.value.refMode === 'frames') {
     return [
-      '描述你想生成的视频画面、镜头运动与节奏…',
-      '雨夜霓虹街道，镜头缓缓推进，脚步溅起水花…',
+      '根据参考图生成视频，镜头缓缓推进…',
       '角色回头一笑，浅景深，暖色逆光扫过发丝…',
+      '从近景切到全景，脚步溅起水花…',
+    ];
+  }
+  if (genPrefs.value.refMode === 'text') {
+    return [
+      '雨夜霓虹街道，镜头缓缓推进，脚步溅起水花…',
       '航拍掠过云海，云层翻涌，阳光从缝隙洒下…',
+      '古装对峙，衣袂翻飞，尘土扬起…',
     ];
   }
   return [
-    '描述你想生成的画面风格、主体与构图…',
-    '半身定妆立绘，干净背景，精细衣纹与五官…',
-    '赛博朋克夜市，潮湿地面反光，远处全息招牌…',
-    '古风庭院雪景，朱红廊柱，一盏纸灯摇曳…',
+    '多参考图直出视频，镜头连贯、人物更稳…',
+    '雨夜霓虹街道，镜头缓缓推进，脚步溅起水花…',
+    '角色回头一笑，浅景深，暖色逆光扫过发丝…',
   ];
 });
 
@@ -1770,42 +1831,15 @@ async function onRegenerate(m: GenerateMessage) {
 
 onMounted(async () => {
   await ensureAiSettings();
-  const storedMode = readStoredCreateMode();
-  if (storedMode && homeModes.some((m) => m.value === storedMode && !m.disabled)) {
-    createMode.value = storedMode;
-    if (storedMode === 'image' || storedMode === 'video') {
-      genMode.value = storedMode;
-      syncPrefsForMedia(storedMode);
-    } else {
-      genMode.value = 'video';
-      syncPrefsForMedia('video');
-    }
-  } else {
-    syncPrefsForMedia(genMode.value);
-  }
+  const modeFromQuery = String(route.query.mode || '').trim();
+  const preferredMode = modeFromQuery === 'image' ? 'image' : 'video';
+  createMode.value = preferredMode;
+  persistCreateMode(preferredMode);
+  genMode.value = preferredMode;
+  syncPrefsForMedia(preferredMode);
   try {
-    const plaza = await fetchAgentsPlaza().catch(() => null);
-    const items = plaza?.items || [];
-    agentSkills.value = items.map((a) => ({
-      id: a.id,
-      name: a.name,
-      desc: a.desc || '',
-      prompt: String(a.prompt || a.desc || ''),
-      category: (a.category as CatalogSkill['category']) || 'story',
-      official: a.visibility === 'official',
-      author: a.author || '社区',
-      likes: Number(a.likes) || 0,
-      mode: 'agent' as const,
-      slash: a.slash || a.id,
-      coverUrl: a.coverUrl,
-      starter: String(a.prompt || a.desc || ''),
-    }));
-    const filters = (plaza?.filters || []).filter((f) => f?.id && f?.label && f.id !== 'all');
-    agentSkillFilters.value = filters.length
-      ? filters
-      : [...new Set(agentSkills.value.map((s) => String(s.category || '').trim()).filter(Boolean))].map(
-          (id) => ({ id, label: id }),
-        );
+    agentSkills.value = [];
+    agentSkillFilters.value = [];
   } catch {
     agentSkills.value = [];
     agentSkillFilters.value = [];
@@ -1835,6 +1869,15 @@ watch(prompt, (v) => {
   }
 });
 
+watch(
+  () => String(route.query.mode || '').trim(),
+  (mode) => {
+    if (mode === 'image' || mode === 'video') {
+      if (createMode.value !== mode) onModeUpdate(mode);
+    }
+  },
+);
+
 onBeforeUnmount(() => {
   stopPendingPoll();
   for (const ac of streamAbortBySession.values()) ac.abort();
@@ -1849,17 +1892,17 @@ onBeforeUnmount(() => {
 <style scoped>
 .gen-page {
   display: grid;
-  grid-template-columns: 260px minmax(0, 1fr);
-  height: calc(100vh - 56px);
-  min-height: 520px;
-  background: var(--studio-bg);
-  color: var(--studio-ink);
+  grid-template-columns: 248px minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+  background: #111;
+  color: #f5f5f5;
   font-family: var(--font);
 }
 
 .gen-sidebar {
-  border-right: 1px solid var(--studio-glass-2);
-  background: var(--studio-panel);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0c0c0c;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -1877,26 +1920,27 @@ onBeforeUnmount(() => {
 .sb-head h2 {
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
-  color: var(--studio-ink);
+  font-weight: 650;
+  color: #f5f5f5;
 }
 
 .sb-new {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border: 1px solid var(--studio-glass-3);
-  background: var(--studio-panel);
-  color: var(--studio-ink);
+  border: 0;
+  background: #2563eb;
+  color: #fff;
   border-radius: 8px;
-  padding: 5px 9px;
+  padding: 6px 10px;
   font-size: 12px;
+  font-weight: 600;
   cursor: pointer;
 }
 
 .sb-new:hover {
-  background: var(--studio-panel-3);
-  border-color: var(--studio-line-strong);
+  background: #3b82f6;
+  border-color: transparent;
 }
 
 .sb-list {
@@ -1939,22 +1983,23 @@ onBeforeUnmount(() => {
 }
 
 .sb-item.on {
-  background: var(--studio-glass-3);
-  color: var(--studio-ink);
+  background: rgba(37, 99, 235, 0.16);
+  color: #fff;
 }
 
 .sb-thumb {
   flex: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
+  width: 56px;
+  height: 32px;
+  border-radius: 6px;
   overflow: hidden;
-  background: var(--studio-glass-2);
-  border: 1px solid var(--studio-glass-2);
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
   display: grid;
   place-items: center;
 }
 
+.sb-thumb :deep(.lazy-cover),
 .sb-thumb img {
   width: 100%;
   height: 100%;
@@ -2048,7 +2093,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: var(--studio-bg);
+  background: #111;
 }
 
 .gen-feed {
@@ -2084,22 +2129,22 @@ onBeforeUnmount(() => {
 }
 
 .gen-empty {
-  max-width: 520px;
-  margin: 12vh auto 0;
+  max-width: 560px;
+  margin: 16vh auto 0;
   text-align: center;
 }
 
 .gen-empty h1 {
   margin: 0 0 10px;
   font-size: 28px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  color: var(--studio-ink);
+  font-weight: 650;
+  letter-spacing: -0.03em;
+  color: #f5f5f5;
 }
 
 .gen-empty p {
   margin: 0;
-  color: var(--studio-text-faint);
+  color: #a3a3a3;
   font-size: 14px;
   line-height: 1.6;
 }
@@ -2174,7 +2219,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  width: min(860px, 100%);
+  width: min(920px, 100%);
   margin: 0 auto 10px;
 }
 
@@ -2485,12 +2530,58 @@ onBeforeUnmount(() => {
 }
 
 .gen-composer {
-  padding: 8px 24px 22px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    color-mix(in srgb, var(--studio-bg) 92%, transparent) 28%
-  );
+  padding: 8px 24px 28px;
+  background: linear-gradient(180deg, transparent, #111 36%);
+}
+
+.video-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 920px;
+  width: 100%;
+  margin: 0 auto 12px;
+  padding: 4px;
+  border-radius: 999px;
+  background: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+}
+
+.video-mode-tab {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #a3a3a3;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.video-mode-tab:hover {
+  color: #e5e5e5;
+}
+
+.video-mode-tab.on {
+  background: #2563eb;
+  color: #fff;
+}
+
+.tab-badge {
+  height: 16px;
+  width: auto;
+  object-fit: contain;
+  display: block;
 }
 
 .frames-hint {
@@ -2498,7 +2589,7 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
-  max-width: 860px;
+  max-width: 920px;
   margin: 0 auto 8px;
   padding: 0 4px;
   color: var(--studio-text-soft);
@@ -2561,7 +2652,8 @@ onBeforeUnmount(() => {
 }
 
 .home-send.stop {
-  background: #eceef2 !important;
+  background: #e5e5e5 !important;
+  color: #111 !important;
 }
 
 .home-send-stop {
@@ -2569,29 +2661,93 @@ onBeforeUnmount(() => {
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: var(--studio-inset);
+  background: #111;
 }
 
 .gen-composer .home-prompt {
-  max-width: 860px;
+  max-width: 920px;
   margin: 0 auto;
+}
+
+.gen-page :deep(.home-ai-prompt) {
+  background: #1a1a1a !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 20px !important;
+}
+
+.gen-page :deep(.home-ai-prompt:focus-within) {
+  border-color: rgba(59, 130, 246, 0.55) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16) !important;
+}
+
+.gen-page :deep(.chip.on),
+.gen-page :deep(.chip-mode),
+.gen-page :deep(.chip-mode.video) {
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+  background: rgba(37, 99, 235, 0.14);
+}
+
+.gen-page :deep(.spark) {
+  color: #60a5fa;
+}
+
+.gen-page :deep(.attach-rail) {
+  --attach-w: 64px;
+  --attach-h: 80px;
+}
+
+.gen-page :deep(.attach-empty) {
+  transform: none;
+  border-style: dashed;
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(37, 99, 235, 0.08);
+  color: #93c5fd;
+}
+
+.gen-page :deep(.attach-empty:hover:not(:disabled)) {
+  transform: none;
+  border-color: #3b82f6;
+  color: #dbeafe;
+}
+
+.gen-page .home-send {
+  width: 36px;
+  height: 36px;
+  background: #2563eb;
+  color: #fff;
+}
+
+.gen-page .home-send:hover:not(:disabled) {
+  background: #3b82f6;
+  filter: none;
+}
+
+.gen-page .home-send:disabled {
+  background: #262626;
+  color: #737373;
+  opacity: 1;
 }
 
 @media (max-width: 860px) {
   .gen-page {
     grid-template-columns: 1fr;
     height: auto;
-    min-height: calc(100vh - 56px);
+    min-height: 100%;
   }
 
   .gen-sidebar {
     border-right: none;
-    border-bottom: 1px solid var(--studio-glass-2);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     max-height: 220px;
   }
 
   .gen-main {
     min-height: 60vh;
+  }
+
+  .video-mode-tabs {
+    border-radius: 14px;
   }
 }
 </style>

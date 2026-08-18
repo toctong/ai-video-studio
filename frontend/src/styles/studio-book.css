@@ -22,7 +22,7 @@
   --accent-ink: var(--studio-bg);
   --accent-soft: var(--studio-glass-2);
   --scroll-thumb: var(--studio-panel-3);
-  --ok: #4ade80;
+  --ok: #60a5fa;
   --warn: #fbbf24;
   --danger: #f87171;
   --el-bg-color: var(--studio-panel);
@@ -170,13 +170,13 @@
   cursor: wait;
 }
 .studio-book .pill-btn.primary {
-  background: #10b981;
-  color: #052e1c;
+  background: #2563eb;
+  color: #ffffff;
   font-weight: 650;
 }
 .studio-book .pill-btn.primary:hover:not(:disabled) {
-  background: #34d399;
-  color: #052e1c;
+  background: #3b82f6;
+  color: #ffffff;
 }
 
 .studio-book .write-body {

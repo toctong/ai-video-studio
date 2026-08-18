@@ -116,40 +116,20 @@ async function fetchRemote(url: string): Promise<unknown> {
 }
 
 /**
- * 拉取提示词广场数据。
- * 优先级：本机 Hub 同步缓存 → VITE_SKILL_PLAZA_URL → 空（不回填本地 JSON）
+ * 拉取提示词广场数据（无外部 Hub 时返回空；可配 VITE_SKILL_PLAZA_URL）。
  */
 export async function fetchSkillPlaza(force = false): Promise<SkillPlazaPayload> {
   if (!force && cache) return cache;
   if (!force && inflight) return inflight;
 
   inflight = (async () => {
-    try {
-      let hub: unknown;
-      try {
-        hub = await api.get('/hub/prompts/plaza').then((r) => r.data);
-      } catch {
-        hub = null;
-      }
-      if (hub) {
-        const normalized = normalizePayload(hub, 'lumina-hub');
-        if (normalized.skills.length > 0 || Number(normalized.version) > 0) {
-          cache = normalized;
-          setRuntimeSkillCatalog(normalized.skills.map(toCatalogSkill));
-          return cache;
-        }
-      }
-    } catch {
-      /* Hub 未同步 → 继续 */
-    }
-
     if (REMOTE_PLAZA_URL) {
       try {
         cache = normalizePayload(await fetchRemote(REMOTE_PLAZA_URL), 'remote');
         setRuntimeSkillCatalog(cache.skills.map(toCatalogSkill));
         return cache;
       } catch {
-        /* 外部失败 → 空 */
+        /* ignore */
       }
     }
 
@@ -218,14 +198,6 @@ export type SubmitCommunityPromptResult = {
   autoApproved?: boolean;
 };
 
-/** 投稿提示词到 Hub 社区（审核/自动通过后进提示词广场） */
-export async function submitCommunityPrompt(
-  body: SubmitCommunityPromptBody,
-): Promise<SubmitCommunityPromptResult> {
-  const { data } = await api.post('/hub/resources/submit', body);
-  return data;
-}
-
 export type ReportHubResourceUseResult = {
   ok: boolean;
   id?: string;
@@ -234,23 +206,19 @@ export type ReportHubResourceUseResult = {
   downloadCount?: number | null;
 };
 
+/** 投稿社区提示词（已停用外部 Hub） */
+export async function submitCommunityPrompt(
+  _body: SubmitCommunityPromptBody,
+): Promise<SubmitCommunityPromptResult> {
+  throw new Error('社区投稿已停用（无外部 Hub）');
+}
+
 /**
- * 广场点「使用」上报 Hub（downloadCount/uses +1，非幂等）。
- * 失败不抛给业务主流程：调用方应 fire-and-forget。
+ * 广场「使用」计数（已停用）；fire-and-forget 恒返回 null。
  */
 export async function reportHubResourceUse(
-  id: string,
-  kind?: 'prompt' | 'skill' | 'workflow' | string,
+  _id: string,
+  _kind?: 'prompt' | 'skill' | 'workflow' | string,
 ): Promise<ReportHubResourceUseResult | null> {
-  const resourceId = String(id || '').trim();
-  if (!resourceId) return null;
-  try {
-    const { data } = await api.post(
-      `/hub/resources/${encodeURIComponent(resourceId)}/use`,
-      kind ? { kind } : {},
-    );
-    return data;
-  } catch {
-    return null;
-  }
+  return null;
 }

@@ -16,6 +16,7 @@
           </span>
         </router-link>
 
+        <UiScroll class="rail-nav-scroll" always>
         <nav class="app-rail-nav">
           <router-link
             v-for="item in PLATFORM_NAV"
@@ -32,6 +33,7 @@
             <span class="rail-label">{{ item.label }}</span>
           </router-link>
         </nav>
+        </UiScroll>
 
         <div class="rail-footer">
           <JobQueuePanel compact />

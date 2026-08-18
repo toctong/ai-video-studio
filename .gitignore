@@ -16,3 +16,10 @@ tmp-*
 backend/tmp-*
 npm-install-out.txt
 config/redis/
+config/minio/
+scripts/oss-uploaded-urls.json
+scripts/oss-library-seed.json
+scripts/oss-modes-manifest.json
+
+# 纳米静态资源已上 MinIO，不再放 frontend/public/nami
+frontend/public/nami/

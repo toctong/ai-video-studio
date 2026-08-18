@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
 import { IsNumber, IsObject, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -63,12 +63,29 @@ export class SettingsController {
   async update(@Body() body: UpdateSettingsDto) {
     const data = await this.settings.update(body as any);
     this.fileOss.invalidateCache();
+    if (body.fileOss) {
+      try {
+        await this.fileOss.ensureMinioReady();
+      } catch {
+        /* 保存成功即可；连通性由测试接口反馈 */
+      }
+    }
     return data;
   }
 
   @Post('file-oss/test')
   async testFileOss() {
     this.fileOss.invalidateCache();
+    try {
+      await this.fileOss.ensureMinioReady();
+    } catch (e: any) {
+      return { ok: false, message: String(e?.message || e || 'MinIO 初始化失败') };
+    }
     return this.fileOss.testConnection();
+  }
+
+  @Delete('channels/:slug')
+  removeLocalChannel(@Param('slug') slug: string) {
+    return this.settings.removeLocalChannel(slug);
   }
 }

@@ -70,9 +70,9 @@ const options = computed<TimelineOptions>(() => ({
   contentBackgroundColor: '#161616',
   borderColor: 'rgba(255,255,255,0.08)',
   gridColor: 'rgba(255,255,255,0.06)',
-  cursorColor: '#34d399',
+  cursorColor: '#3b82f6',
   actionColor: '#2f6fed',
-  snapLineColor: '#34d399',
+  snapLineColor: '#3b82f6',
 }));
 
 const aspectCss = computed(() => {
@@ -605,12 +605,12 @@ onBeforeUnmount(() => {
 }
 .fpw-btn.primary {
   border: 0;
-  background: #10b981;
-  color: #052e1c;
+  background: #2563eb;
+  color: #ffffff;
   font-weight: 650;
 }
 .fpw-btn.primary:hover {
-  background: #34d399;
+  background: #3b82f6;
 }
 
 .fpw-stage {
@@ -743,8 +743,8 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 .fpw-transport-btn:hover {
-  background: rgba(16, 185, 129, 0.2);
-  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(37, 99, 235, 0.2);
+  border-color: rgba(59, 130, 246, 0.45);
 }
 .fpw-clock {
   display: inline-flex;
@@ -830,9 +830,9 @@ onBeforeUnmount(() => {
   --timeline-content-bg: #161616;
   --timeline-border-color: rgba(255, 255, 255, 0.08);
   --timeline-grid-color: rgba(255, 255, 255, 0.06);
-  --timeline-cursor-color: #34d399;
+  --timeline-cursor-color: #3b82f6;
   --timeline-action-color: #2f6fed;
-  --timeline-snap-line-color: #34d399;
+  --timeline-snap-line-color: #3b82f6;
 }
 .fpw-editor :deep(.timeline-header) {
   box-sizing: border-box;
@@ -855,8 +855,8 @@ onBeforeUnmount(() => {
 }
 .fpw-editor :deep(.timeline-action.selected) {
   background-color: transparent;
-  border: 1px solid #34d399;
-  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.25);
+  border: 1px solid #3b82f6;
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.25);
 }
 
 .fpw-action {

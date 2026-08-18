@@ -36,7 +36,9 @@
       append-to-body
     >
       <p class="outline-hint">由第 1 集生成或导入剧集时自动识别，供后续剧集创作参考。</p>
-      <div v-if="hasOutline" class="outline-body">{{ seriesOutlineText }}</div>
+      <UiScroll v-if="hasOutline" class="outline-scroll" always :max-height="'min(60vh, 480px)'">
+        <div class="outline-body">{{ seriesOutlineText }}</div>
+      </UiScroll>
       <div v-else class="outline-empty">暂无大纲。创建或导入第 1 集后会自动生成。</div>
     </el-dialog>
 
@@ -71,7 +73,7 @@
           @click="openEpisode(ep.id)"
         >
           <div class="ep-cover" :class="{ empty: !ep.thumbUrl }">
-            <img v-if="ep.thumbUrl" :src="ep.thumbUrl" :alt="ep.name" loading="lazy" />
+            <LazyCoverImage v-if="ep.thumbUrl" :src="ep.thumbUrl" :alt="ep.name" />
             <UiIcon v-else name="film" :size="28" />
             <span class="ep-badge">第{{ ep.meta?.episodeIndex || '?' }}集</span>
           </div>
@@ -98,6 +100,8 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import UiIcon from '@/components/icons/UiIcon.vue';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
+import { UiScroll } from '@/components/ui';
 import {
   createFilmEpisode,
   fetchFilmCollection,
@@ -360,9 +364,13 @@ onMounted(load);
   line-height: 1.5;
 }
 
+.outline-scroll {
+  min-height: 0;
+}
+
 .outline-body {
-  max-height: min(60vh, 480px);
-  overflow: auto;
+  max-height: none;
+  overflow: hidden;
   white-space: pre-wrap;
   word-break: break-word;
   font-size: 13px;
@@ -441,6 +449,7 @@ onMounted(load);
 .ep-cover.empty {
   background: var(--studio-inset-2);
 }
+.ep-cover :deep(.lazy-cover),
 .ep-cover img {
   width: 100%;
   height: 100%;

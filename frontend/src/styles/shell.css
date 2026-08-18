@@ -147,7 +147,11 @@
   padding: 4px 8px;
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+}
+.rail-nav-scroll {
+  flex: 1;
+  min-height: 0;
 }
 
 .app-rail-item {
@@ -192,13 +196,13 @@
   color: #fff;
 }
 .app-rail-item.active .rail-ico {
-  background: rgba(52, 211, 153, 0.18);
-  box-shadow: 0 0 0 1px rgba(52, 211, 153, 0.28), 0 8px 24px rgba(16, 185, 129, 0.18);
-  color: #6ee7b7;
+  background: rgba(59, 130, 246, 0.18);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.28), 0 8px 24px rgba(37, 99, 235, 0.18);
+  color: #93c5fd;
 }
 .app-rail-item[href='/home'].active .rail-ico,
 .app-rail-item.router-link-active[href='/home'] .rail-ico {
-  background-image: url('/nami/icons/home-active-bg.png');
+  background-image: url('https://minio-aka.iepose.cn/ai-video-studio/nami/icons/home-active-bg.png');
   background-size: cover;
   background-position: center;
 }
@@ -281,7 +285,7 @@
 .workbench-page {
   height: 100%;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 20px 24px 40px;
   box-sizing: border-box;
   background: var(--shell-bg);

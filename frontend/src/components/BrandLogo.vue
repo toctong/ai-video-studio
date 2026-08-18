@@ -1,8 +1,14 @@
 <template>
   <span class="brand-logo" aria-hidden="true">
-    <img src="/nami/logo.png" alt="" width="40" height="40" />
+    <img :src="logoUrl" alt="" width="40" height="40" />
   </span>
 </template>
+
+<script setup lang="ts">
+import { namiAsset } from '@/constants/oss-public';
+
+const logoUrl = namiAsset('logo.png');
+</script>
 
 <style scoped>
 .brand-logo {

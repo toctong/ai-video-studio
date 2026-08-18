@@ -16,7 +16,8 @@ import {
   looksLikeVolcArkApiKey,
   normalizeProviderId,
 } from '@ai-video-studio/shared';
-import { isLocalStorageMode, resolveSecret } from '../../config/env';
+import { resolveSecret } from '../../config/env';
+import { HARDCODED_FILE_OSS } from '../../config/file-oss.hardcode';
 import { AppSetting } from '../../entities/app-setting.entity';
 import { JobConcurrencyNotifier } from './job-concurrency.notifier';
 
@@ -179,12 +180,12 @@ const DEFAULTS: SystemSettings = {
   defaultMusicModel: 'suno-v4',
   jobConcurrency: 8,
   fileOss: {
-    baseUrl: '',
-    apiEndpoint: '',
-    bucket: '',
-    keyPrefix: '',
-    accessKeyId: '',
-    accessKeySecret: '',
+    baseUrl: HARDCODED_FILE_OSS.baseUrl,
+    apiEndpoint: HARDCODED_FILE_OSS.apiEndpoint,
+    bucket: HARDCODED_FILE_OSS.bucket,
+    keyPrefix: HARDCODED_FILE_OSS.keyPrefix,
+    accessKeyId: HARDCODED_FILE_OSS.accessKeyId,
+    accessKeySecret: HARDCODED_FILE_OSS.accessKeySecret,
   },
 };
 
@@ -344,28 +345,32 @@ export class SettingsService {
     const creds = await this.loadCredentials();
     await this.persistCredentials(creds);
 
-    // 环境变量一次性迁入设置（之后以设置为准）
+    // 环境变量迁入设置：库内为空时每次启动都可补齐（便于后接 MinIO）
+    const envId = String(process.env.FILE_OSS_ACCESS_KEY_ID || '').trim();
+    const envSecret = String(process.env.FILE_OSS_ACCESS_KEY_SECRET || '').trim();
+    const envBucket = String(process.env.FILE_OSS_BUCKET || '').trim();
+    const envBase = String(process.env.FILE_OSS_BASE_URL || '').trim();
+    const envApi = String(process.env.FILE_OSS_API_ENDPOINT || '').trim();
+    const envPrefix = String(process.env.FILE_OSS_KEY_PREFIX || '').trim();
+    if (envBase && !(await this.getRaw('fileOssBaseUrl'))) {
+      await this.setRaw('fileOssBaseUrl', envBase.replace(/\/+$/, ''));
+    }
+    if (envApi && !(await this.getRaw('fileOssApiEndpoint'))) {
+      await this.setRaw('fileOssApiEndpoint', envApi.replace(/\/+$/, ''));
+    }
+    if (envBucket && !(await this.getRaw('fileOssBucket'))) {
+      await this.setRaw('fileOssBucket', envBucket);
+    }
+    if (envPrefix && !(await this.getRaw('fileOssKeyPrefix'))) {
+      await this.setRaw('fileOssKeyPrefix', envPrefix);
+    }
+    if (envId && !(await this.getRaw('fileOssAccessKeyId'))) {
+      await this.setRaw('fileOssAccessKeyId', this.encrypt(envId));
+    }
+    if (envSecret && !(await this.getRaw('fileOssAccessKeySecret'))) {
+      await this.setRaw('fileOssAccessKeySecret', this.encrypt(envSecret));
+    }
     if (!(await this.getRaw('fileOssMigratedFromEnv'))) {
-      const envId = String(process.env.FILE_OSS_ACCESS_KEY_ID || '').trim();
-      const envSecret = String(process.env.FILE_OSS_ACCESS_KEY_SECRET || '').trim();
-      const envBucket = String(process.env.FILE_OSS_BUCKET || '').trim();
-      const envBase = String(process.env.FILE_OSS_BASE_URL || '').trim();
-      const envPrefix = String(process.env.FILE_OSS_KEY_PREFIX || '').trim();
-      if (envBase && !(await this.getRaw('fileOssBaseUrl'))) {
-        await this.setRaw('fileOssBaseUrl', envBase.replace(/\/+$/, ''));
-      }
-      if (envBucket && !(await this.getRaw('fileOssBucket'))) {
-        await this.setRaw('fileOssBucket', envBucket);
-      }
-      if (envPrefix && !(await this.getRaw('fileOssKeyPrefix'))) {
-        await this.setRaw('fileOssKeyPrefix', envPrefix);
-      }
-      if (envId && !(await this.getRaw('fileOssAccessKeyId'))) {
-        await this.setRaw('fileOssAccessKeyId', this.encrypt(envId));
-      }
-      if (envSecret && !(await this.getRaw('fileOssAccessKeySecret'))) {
-        await this.setRaw('fileOssAccessKeySecret', this.encrypt(envSecret));
-      }
       await this.setRaw('fileOssMigratedFromEnv', '1');
     }
 
@@ -671,36 +676,39 @@ export class SettingsService {
   }
 
   async getFileOssConfig(): Promise<FileOssConfig> {
-    await this.ensureMigrated();
-    if (isLocalStorageMode()) {
-      return {
-        baseUrl: '/api/uploads',
-        apiEndpoint: '',
-        bucket: 'local',
-        keyPrefix: 'ai/video-studio',
-        accessKeyId: '',
-        accessKeySecret: '',
-      };
-    }
-    const baseUrl =
-      (await this.getRaw('fileOssBaseUrl')) ||
-      DEFAULTS.fileOss.baseUrl;
-    const apiEndpoint = (await this.getRaw('fileOssApiEndpoint')) || '';
-    const bucket = (await this.getRaw('fileOssBucket')) || DEFAULTS.fileOss.bucket;
-    const keyPrefix =
-      (await this.getRaw('fileOssKeyPrefix')) || DEFAULTS.fileOss.keyPrefix;
     return {
-      baseUrl: baseUrl.replace(/\/+$/, ''),
-      apiEndpoint: String(apiEndpoint || '').trim().replace(/\/+$/, ''),
-      bucket: bucket.trim(),
-      keyPrefix: keyPrefix.trim().replace(/^\/+|\/+$/g, ''),
-      accessKeyId: this.decrypt(await this.getRaw('fileOssAccessKeyId')),
-      accessKeySecret: this.decrypt(await this.getRaw('fileOssAccessKeySecret')),
+      baseUrl: HARDCODED_FILE_OSS.baseUrl.replace(/\/+$/, ''),
+      apiEndpoint: HARDCODED_FILE_OSS.apiEndpoint.replace(/\/+$/, ''),
+      bucket: HARDCODED_FILE_OSS.bucket,
+      keyPrefix: HARDCODED_FILE_OSS.keyPrefix,
+      accessKeyId: HARDCODED_FILE_OSS.accessKeyId,
+      accessKeySecret: HARDCODED_FILE_OSS.accessKeySecret,
     };
   }
 
+  async findLocalModel(modelIdOrSlug: string): Promise<LocalModelRecord | null> {
+    const key = String(modelIdOrSlug || '').trim();
+    if (!key) return null;
+    const internal = await this.getInternal();
+    return (
+      (internal.localModels || []).find(
+        (m) => String(m.modelId || '') === key || String(m.slug || '') === key,
+      ) || null
+    );
+  }
+
+  async findLocalChannel(slug: string): Promise<(LocalChannelRecord & { slug: string }) | null> {
+    const key = String(slug || '').trim();
+    if (!key) return null;
+    const internal = await this.getInternal();
+    const local = internal.channelCredentials?.[key];
+    if (!local) return null;
+    return { ...local, slug: key };
+  }
+
   private toPublicFileOss(c: FileOssConfig): FileOssPublic {
-    const configured = isLocalStorageMode()
+    const diskFallback = c.bucket === 'local' && !c.accessKeyId;
+    const configured = diskFallback
       ? true
       : Boolean(c.baseUrl && c.bucket && c.accessKeyId && c.accessKeySecret);
     return {
@@ -929,39 +937,7 @@ export class SettingsService {
     }
 
     if (partial.fileOss) {
-      const fo = partial.fileOss;
-      if (fo.baseUrl !== undefined) {
-        await this.setRaw(
-          'fileOssBaseUrl',
-          String(fo.baseUrl || DEFAULTS.fileOss.baseUrl).replace(/\/+$/, ''),
-        );
-      }
-      if (fo.apiEndpoint !== undefined) {
-        await this.setRaw(
-          'fileOssApiEndpoint',
-          String(fo.apiEndpoint || '').trim().replace(/\/+$/, ''),
-        );
-      }
-      if (fo.bucket !== undefined) {
-        await this.setRaw('fileOssBucket', String(fo.bucket || '').trim());
-      }
-      if (fo.keyPrefix !== undefined) {
-        await this.setRaw(
-          'fileOssKeyPrefix',
-          String(fo.keyPrefix || DEFAULTS.fileOss.keyPrefix)
-            .trim()
-            .replace(/^\/+|\/+$/g, ''),
-        );
-      }
-      if (fo.accessKeyId) {
-        await this.setRaw('fileOssAccessKeyId', this.encrypt(String(fo.accessKeyId).trim()));
-      }
-      if (fo.accessKeySecret) {
-        await this.setRaw(
-          'fileOssAccessKeySecret',
-          this.encrypt(String(fo.accessKeySecret).trim()),
-        );
-      }
+      // 对象存储已写死，忽略设置页覆盖
     }
 
     return this.getPublic();

@@ -35,7 +35,6 @@ import { ProductionsModule } from './modules/productions/productions.module';
 import { DiscoverModule } from './modules/discover/discover.module';
 import { DiscoverPost } from './entities/discover-post.entity';
 import { UserPrompt } from './entities/user-prompt.entity';
-import { HubModule } from './modules/hub/hub.module';
 import { UserPromptsModule } from './modules/user-prompts/user-prompts.module';
 import { GenerateModule } from './modules/generate/generate.module';
 import { GenerateSession } from './entities/generate-session.entity';
@@ -99,7 +98,6 @@ const dbPath = process.env.DB_PATH || join(process.cwd(), 'data', 'ai-video-stud
     WorkflowsModule,
     ProductionsModule,
     DiscoverModule,
-    HubModule,
     UserPromptsModule,
     AppLogsModule,
   ],

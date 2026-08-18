@@ -8,6 +8,7 @@ import type {
 } from '@/libraries';
 import { useLibrariesStore } from '@/stores/libraries';
 import FilterTabs from '@/components/FilterTabs.vue';
+import { UiScroll } from '@/components/ui';
 
 const props = withDefaults(
   defineProps<{
@@ -128,6 +129,7 @@ function previewText(item: ScriptLibraryItem | StyleLibraryItem | CharacterLibra
         <FilterTabs v-model="category" :options="tabOptions" />
       </header>
 
+      <UiScroll class="lib-grid-scroll" always :max-height="'min(56vh, 560px)'">
       <div class="lib-grid">
         <button
           v-for="item in items"
@@ -153,6 +155,7 @@ function previewText(item: ScriptLibraryItem | StyleLibraryItem | CharacterLibra
           </div>
         </button>
       </div>
+      </UiScroll>
 
       <el-empty v-if="!items.length" description="没有匹配的条目" :image-size="56" />
     </div>
@@ -253,15 +256,15 @@ function previewText(item: ScriptLibraryItem | StyleLibraryItem | CharacterLibra
   font-weight: 600;
 }
 
+.lib-grid-scroll {
+  min-height: 0;
+}
 .lib-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  max-height: min(56vh, 560px);
-  overflow: auto;
   padding: 2px 6px 6px 2px;
   margin: 0 -2px;
-  scrollbar-gutter: stable;
 }
 
 .lib-card {

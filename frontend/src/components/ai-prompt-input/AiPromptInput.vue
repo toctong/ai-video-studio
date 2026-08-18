@@ -102,6 +102,8 @@ const props = withDefaults(
     showSend?: boolean;
     /** 弹层色调：home 对齐首页暗色毛玻璃，default 跟系统主题 token */
     tone?: 'default' | 'home';
+    /** 视频参考模式芯片；外层已有方式 Tab 时可关掉 */
+    showRefMode?: boolean;
   }>(),
   {
     modelValue: '',
@@ -140,6 +142,7 @@ const props = withDefaults(
     loading: false,
     showSend: true,
     tone: 'default',
+    showRefMode: true,
   },
 );
 
@@ -1239,7 +1242,7 @@ defineExpose({
             </el-popover>
 
             <el-popover
-              v-if="showMediaPrefs && isVideoMode"
+              v-if="showMediaPrefs && isVideoMode && showRefMode"
               v-model:visible="refOpen"
               placement="bottom-start"
               :width="220"
@@ -1439,7 +1442,7 @@ defineExpose({
                   <p>{{ isAgentMode ? '暂无可用 Skill' : '暂无技能模板' }}</p>
                   <span>{{
                     isAgentMode
-                      ? '请先在设置中同步 Hub，技能广场同步后会出现在这里'
+                      ? '当前没有可用 Skill，可直接用文字描述生成'
                       : '可稍后再试'
                   }}</span>
                 </div>

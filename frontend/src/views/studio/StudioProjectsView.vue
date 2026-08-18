@@ -201,6 +201,7 @@
               <UiIcon name="x" :size="18" />
             </button>
           </header>
+          <UiScroll class="move-list-scroll" always :max-height="'min(360px, 50vh)'">
           <div class="move-list">
             <button
               type="button"
@@ -224,6 +225,7 @@
               <span>{{ f.name || '未命名合集' }}</span>
             </button>
           </div>
+          </UiScroll>
           <footer class="move-foot">
             <button type="button" class="head-btn outline" @click="closeMoveDialog">取消</button>
             <button type="button" class="head-btn solid" :disabled="moving" @click="confirmMove">
@@ -267,6 +269,7 @@ import { createBlankProduction, ensureCompiledProduction } from '@/utils/compile
 import { routeImportedJson } from '@/utils/import-workflow-json';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import MediaThumb from '@/components/MediaThumb.vue';
+import { UiScroll } from '@/components/ui';
 
 const PROD_MIME = 'application/x-production';
 const FOLDER_MIME = 'application/x-production-folder';
@@ -1410,10 +1413,11 @@ onMounted(() => {
   background: var(--studio-glass-2);
   color: var(--studio-ink);
 }
+.move-list-scroll {
+  min-height: 0;
+}
 .move-list {
   padding: 8px 12px 16px;
-  max-height: min(360px, 50vh);
-  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 4px;

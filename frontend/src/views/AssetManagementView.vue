@@ -6,6 +6,7 @@
         <el-button size="small" text @click="loadTree">刷新</el-button>
       </header>
 
+      <UiScroll class="tree-scroll" always>
       <div class="tree">
         <div v-for="section in sections" :key="section.id" class="tree-section">
           <div class="section-label">{{ section.label }}</div>
@@ -24,6 +25,7 @@
           </button>
         </div>
       </div>
+      </UiScroll>
     </aside>
 
     <main class="content">
@@ -53,17 +55,23 @@
         </div>
       </header>
 
+      <UiScroll class="content-scroll" always>
       <section v-if="!selectedNode" class="empty">
         <el-empty description="请从左侧选择一个素材库或我的作品" />
       </section>
 
       <section v-else-if="selectedNode.kind === 'folder'" class="grid">
-        <article v-for="node in folderChildren" :key="node.key" class="card folder-card" @click="selectNode(node)">
+        <article
+          v-for="node in folderChildren"
+          :key="node.key"
+          class="card folder-card"
+          @click="selectNode(node)"
+        >
           <div class="thumb">
-            <UiIcon name="folder" :size="44" />
+            <UiIcon name="folder" :size="40" />
+            <span class="name-bar">{{ node.label }}</span>
           </div>
-          <strong>{{ node.label }}</strong>
-          <span>{{ node.kind === 'folder' ? '合集' : '单集' }}</span>
+          <span class="type-pill">{{ node.kind === 'folder' ? '合集' : '单集' }}</span>
         </article>
         <el-empty v-if="!folderChildren.length" class="grid-empty" description="这个合集还是空的" />
       </section>
@@ -71,19 +79,25 @@
       <section v-else class="grid" v-loading="loading">
         <article v-for="a in filteredAssets" :key="a.id" class="card asset-card">
           <div class="thumb">
-            <img v-if="isImage(a)" :src="a.url" :alt="a.name" loading="lazy" />
-            <video v-else-if="isVideo(a)" :src="a.url" controls muted />
-            <audio v-else-if="isAudio(a)" :src="a.url" controls />
-            <UiIcon v-else name="file" :size="44" />
+            <LazyCoverImage v-if="isImage(a)" :src="assetUrl(a)" :alt="a.name" />
+            <LazyVideo v-else-if="isVideo(a)" class="asset-video" :src="assetUrl(a)" autoplay />
+            <div v-else-if="isAudio(a)" class="media-fallback">
+              <UiIcon name="music" :size="36" />
+              <audio :src="assetUrl(a)" controls />
+            </div>
+            <div v-else class="media-fallback">
+              <UiIcon name="file" :size="36" />
+            </div>
+            <span class="name-bar" :title="a.name">{{ a.name || '未命名素材' }}</span>
+            <span class="type-pill">{{ typeLabel(a.type) }}</span>
           </div>
-          <div class="card-body">
-            <strong :title="a.name">{{ a.name || '未命名素材' }}</strong>
-            <span>{{ typeLabel(a.type) }}</span>
-          </div>
-          <button type="button" class="delete" title="删除" @click="removeAsset(a)">×</button>
+          <button type="button" class="delete" title="删除" @click.stop="removeAsset(a)">
+            ×
+          </button>
         </article>
         <el-empty v-if="!loading && !filteredAssets.length" class="grid-empty" description="暂无素材，点击右上角上传" />
       </section>
+      </UiScroll>
     </main>
   </div>
 </template>
@@ -94,6 +108,10 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import api from '@/api';
 import { fetchProductions, fetchProductionFolders, type ProductionFolder, type ProductionRow } from '@/api/productions';
 import UiIcon from '@/components/icons/UiIcon.vue';
+import { UiScroll } from '@/components/ui';
+import LazyCoverImage from '@/components/LazyCoverImage.vue';
+import LazyVideo from '@/components/LazyVideo.vue';
+import { resolveMediaUrl } from '@/constants/oss-public';
 import type { IconName } from '@/components/icons/types';
 
 type CategoryId =
@@ -353,6 +371,10 @@ async function removeAsset(a: any) {
   }
 }
 
+function assetUrl(a: { url?: string }) {
+  return resolveMediaUrl(String(a?.url || ''));
+}
+
 function isImage(a: any) {
   return /^image\//i.test(a.mimeType || '') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(a.url || '');
 }
@@ -393,7 +415,8 @@ onMounted(async () => {
 <style scoped>
 .asset-lib {
   --tree-width: 250px;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   display: grid;
   grid-template-columns: var(--tree-width) minmax(0, 1fr);
   background: var(--studio-bg);
@@ -404,6 +427,14 @@ onMounted(async () => {
   background: var(--studio-panel);
   padding: 22px 14px;
   min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.tree-scroll {
+  flex: 1;
+  min-height: 0;
 }
 .tree-head {
   display: flex;
@@ -414,8 +445,9 @@ onMounted(async () => {
 }
 .tree-head h1 {
   margin: 0;
-  font-size: 22px;
-  letter-spacing: -0.04em;
+  font-size: 18px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 .tree {
   display: flex;
@@ -451,8 +483,8 @@ onMounted(async () => {
   color: var(--studio-ink);
 }
 .tree-node.on {
-  background: var(--studio-glass-2);
-  color: var(--studio-ink);
+  background: rgba(37, 99, 235, 0.14);
+  color: #eff6ff;
 }
 .tree-node span {
   flex: 1;
@@ -468,7 +500,16 @@ onMounted(async () => {
 }
 .content {
   min-width: 0;
-  padding: 24px 26px 56px;
+  min-height: 0;
+  padding: 24px 26px 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.content-scroll {
+  flex: 1;
+  min-height: 0;
+  padding-bottom: 56px;
 }
 .content-head {
   display: flex;
@@ -479,15 +520,16 @@ onMounted(async () => {
 }
 .eyebrow {
   margin: 0 0 6px;
-  color: var(--studio-accent, #3b82f6);
+  color: #3b82f6;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
 }
 .content-head h2 {
   margin: 0;
-  font-size: 28px;
-  letter-spacing: -0.04em;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.02em;
 }
 .head-actions {
   display: flex;
@@ -504,8 +546,8 @@ onMounted(async () => {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 12px;
   min-height: 180px;
 }
 .grid-empty {
@@ -517,63 +559,114 @@ onMounted(async () => {
 .card {
   position: relative;
   overflow: hidden;
-  border: 1px solid var(--studio-line-strong);
-  border-radius: 16px;
-  background: var(--studio-panel);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  background: #141414;
   cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(59, 130, 246, 0.45);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
 }
 .card .thumb {
-  aspect-ratio: 4 / 3;
+  position: relative;
+  aspect-ratio: 1;
   display: grid;
   place-items: center;
-  background: var(--studio-bg);
+  background: linear-gradient(160deg, #2a2a2a, #121212);
   color: var(--studio-muted);
+  overflow: hidden;
 }
+.card .thumb :deep(.lazy-cover),
 .card .thumb img,
-.card .thumb video {
+.card .thumb video,
+.card .thumb .asset-video {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
+  transform: scale(1.02);
+  transition: transform 0.35s ease;
 }
-.card .thumb audio {
-  width: 100%;
-  margin: 8px;
+.card:hover .thumb :deep(.lazy-cover),
+.card:hover .thumb img,
+.card:hover .thumb video,
+.card:hover .thumb .asset-video {
+  transform: scale(1.08);
 }
-.card-body {
+.media-fallback {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px 12px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  padding: 12px;
+  color: #737373;
 }
-.card-body strong {
-  font-size: 13px;
+.media-fallback audio {
+  width: 100%;
+}
+.name-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  padding: 22px 10px 10px;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.3;
+  color: #fff;
+  text-align: center;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.card-body span {
-  color: var(--studio-muted);
-  font-size: 12px;
+.type-pill {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  z-index: 1;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  pointer-events: none;
 }
 .folder-card .thumb {
-  background: var(--studio-glass);
+  color: #93c5fd;
 }
 .delete {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 24px;
-  height: 24px;
+  z-index: 2;
+  width: 26px;
+  height: 26px;
   border: 0;
   border-radius: 50%;
-  background: rgba(0, 0, 0, 0.45);
+  background: rgba(0, 0, 0, 0.55);
   color: #fff;
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, background 0.15s ease;
+  line-height: 1;
+  font-size: 16px;
 }
 .card:hover .delete {
   opacity: 1;
+}
+.delete:hover {
+  background: rgba(239, 68, 68, 0.85);
 }
 @media (max-width: 820px) {
   .asset-lib {

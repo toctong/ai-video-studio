@@ -1,7 +1,6 @@
 import { computed, ref } from 'vue';
 import api from '@/api';
 import {
-  fetchModelsCatalog,
   filterHubModelsForCapability,
   type HubModelDto,
 } from '@/api/hub-catalog';
@@ -25,7 +24,7 @@ type AiSettingsSnapshot = {
 
 const loaded = ref(false);
 const loading = ref(false);
-const hubModels = ref<HubModelDto[]>([]);
+const localModels = ref<HubModelDto[]>([]);
 const snapshot = ref<AiSettingsSnapshot>({
   chatProvider: '',
   imageProvider: '',
@@ -40,10 +39,9 @@ const snapshot = ref<AiSettingsSnapshot>({
 function optionsOf(cap: AiCapability): AiModelOption[] {
   const creds =
     snapshot.value.localChannels || snapshot.value.channelCredentials || {};
-  const pulled = new Set(Object.keys(creds).filter(Boolean));
-  // 未拉取的渠道，模型不展示
+  const configured = new Set(Object.keys(creds).filter(Boolean));
   return filterHubModelsForCapability(
-    hubModels.value.filter((m) => pulled.has(m.channelSlug)),
+    localModels.value.filter((m) => configured.has(m.channelSlug)),
     cap,
   );
 }
@@ -51,6 +49,29 @@ function optionsOf(cap: AiCapability): AiModelOption[] {
 function pickRecommended(items: AiModelOption[]): string {
   const hit = items.find((m) => m.recommended) || items[0];
   return hit?.value || '';
+}
+
+function asLocalModels(raw: unknown): HubModelDto[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((x) => {
+      const row = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+      return {
+        id: row.id != null ? String(row.id) : undefined,
+        slug: row.slug != null ? String(row.slug) : undefined,
+        title: row.title != null ? String(row.title) : undefined,
+        label: row.label != null ? String(row.label) : undefined,
+        modelId: String(row.modelId || ''),
+        channelSlug: String(row.channelSlug || row.channel || ''),
+        channelTitle: row.channelTitle != null ? String(row.channelTitle) : undefined,
+        modalities: Array.isArray(row.modalities) ? row.modalities.map(String) : [],
+        enabled: row.enabled !== false,
+        recommended: !!row.recommended,
+        contextWindow: (row.contextWindow as number | string | null) ?? null,
+        apiStyle: row.apiStyle != null ? String(row.apiStyle) : undefined,
+      } satisfies HubModelDto;
+    })
+    .filter((m) => m.modelId && m.channelSlug);
 }
 
 export async function ensureAiSettings(force = false) {
@@ -63,11 +84,8 @@ export async function ensureAiSettings(force = false) {
   }
   loading.value = true;
   try {
-    const [{ data }, catalog] = await Promise.all([
-      api.get('/settings'),
-      fetchModelsCatalog(),
-    ]);
-    hubModels.value = catalog.items || [];
+    const { data } = await api.get('/settings');
+    localModels.value = asLocalModels(data?.localModels);
     const channelCredentials = (data?.channelCredentials || {}) as Record<
       string,
       { hasKey?: boolean }
@@ -130,6 +148,6 @@ export function useAiSettings() {
     optionsOf,
     modelsOf: optionsOf,
     inferProviderFromModel,
-    hubModels: computed(() => hubModels.value),
+    hubModels: computed(() => localModels.value),
   };
 }

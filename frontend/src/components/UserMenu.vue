@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="user-menu" :class="{ 'user-menu--rail': rail }" ref="rootEl">
     <button type="button" class="user-trigger" aria-label="账号菜单" @click="open = !open">
       <span class="avatar">
@@ -188,7 +188,7 @@ function logout() {
   color: #fff;
   font-size: 12px;
   font-weight: 700;
-  background: linear-gradient(135deg, #34d399, #10b981);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   border: 1px solid var(--studio-line-strong);
 }
 .user-menu--rail .avatar {
@@ -239,7 +239,7 @@ function logout() {
   overflow: hidden;
   display: grid;
   place-items: center;
-  background: linear-gradient(135deg, #34d399, #10b981);
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
   color: #fff;
   font-size: 15px;
   font-weight: 700;

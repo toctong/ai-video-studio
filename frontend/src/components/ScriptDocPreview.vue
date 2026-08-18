@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { renderMarkdown, type MdTocItem } from '@/utils/markdown';
+import { UiScroll } from '@/components/ui';
 
 const props = withDefaults(
   defineProps<{
@@ -18,7 +19,7 @@ const props = withDefaults(
 );
 
 const activeId = ref('');
-const readerRef = ref<HTMLElement | null>(null);
+const readerScrollRef = ref<{ wrapEl: () => HTMLElement | undefined; setScrollTop: (n: number) => void } | null>(null);
 /** 点击目录跳转时短暂锁定，避免 smooth scroll 过程中 spy 抢选中 */
 let spyLockedUntil = 0;
 let unlockTimer: ReturnType<typeof setTimeout> | null = null;
@@ -63,7 +64,7 @@ watch(
   async () => {
     await nextTick();
     activeId.value = toc.value[0]?.id || '';
-    if (readerRef.value) readerRef.value.scrollTop = 0;
+    readerScrollRef.value?.setScrollTop(0);
   },
   { immediate: true },
 );
@@ -81,16 +82,20 @@ function scrollTo(id: string, ev?: Event) {
     onReaderScroll();
   }, 650);
 
-  const el = readerRef.value?.querySelector(`#${CSS.escape(id)}`);
+  const el = readerRoot()?.querySelector(`#${CSS.escape(id)}`);
   el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   // 去掉点击残留 focus，避免灰底像「双选中」
   const target = ev?.currentTarget;
   if (target instanceof HTMLElement) target.blur();
 }
 
+function readerRoot() {
+  return readerScrollRef.value?.wrapEl?.();
+}
+
 function onReaderScroll() {
   if (Date.now() < spyLockedUntil) return;
-  const root = readerRef.value;
+  const root = readerRoot();
   if (!root || !toc.value.length) return;
   const marker = root.scrollTop + 36;
   let current = toc.value[0]?.id || '';
@@ -113,7 +118,7 @@ function onReaderScroll() {
         </p>
       </div>
 
-      <nav class="toc-nav">
+      <UiScroll class="toc-nav" always>
         <button
           v-for="item in toc"
           :key="item.id"
@@ -126,16 +131,16 @@ function onReaderScroll() {
           <span class="toc-item-text">{{ item.text }}</span>
         </button>
         <p v-if="!toc.length" class="toc-empty">暂无可用目录</p>
-      </nav>
+      </UiScroll>
     </aside>
 
-    <div ref="readerRef" class="reader" @scroll.passive="onReaderScroll">
+    <UiScroll ref="readerScrollRef" class="reader" always @scroll="onReaderScroll">
       <header v-if="workspace || (hideToc && title)" class="reader-title">
         {{ title || '项目大纲' }}
       </header>
       <div v-if="!content?.trim()" class="empty">生成结果将显示在这里</div>
       <article v-else class="article md-body" v-html="html" />
-    </div>
+    </UiScroll>
   </div>
 </template>
 
@@ -228,14 +233,13 @@ function onReaderScroll() {
 .toc-nav {
   flex: 1;
   min-height: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
   padding: 8px 6px 8px 8px;
+}
+.toc-nav :deep(.el-scrollbar__view) {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  scrollbar-width: thin;
-  scrollbar-gutter: stable;
 }
 
 .doc.workspace .toc-nav {
@@ -352,10 +356,8 @@ function onReaderScroll() {
 .reader {
   min-width: 0;
   height: 100%;
-  overflow: auto;
+  overflow: hidden;
   background: var(--surface);
-  scroll-behavior: smooth;
-  scrollbar-width: thin;
 }
 
 .doc.workspace .reader {

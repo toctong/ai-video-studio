@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page write-page studio-book nested">
     <header class="tool-head">
       <p class="tool-sub">
@@ -121,7 +121,7 @@
               </el-dropdown>
             </div>
 
-            <div class="sider-scroll chapters-only">
+            <UiScroll class="sider-scroll chapters-only" always>
               <div v-if="!chapters.length" class="meta-empty pad">
                 {{ hasOutline ? '点「生成下一章」开始写' : '暂无大纲，可先到「大纲」页查看' }}
               </div>
@@ -172,7 +172,7 @@
                   </el-dropdown>
                 </div>
               </nav>
-            </div>
+            </UiScroll>
           </aside>
 
           <section class="chapter-pane">
@@ -259,7 +259,7 @@
           />
         </div>
 
-        <div v-else class="char-table-wrap">
+        <UiScroll v-else class="char-table-wrap" always>
           <el-empty
             v-if="!characterList.length"
             description="暂无角色。写章后会自动带出，也可点「新建角色」"
@@ -315,7 +315,7 @@
               </template>
             </el-table-column>
           </el-table>
-        </div>
+        </UiScroll>
       </div>
     </div>
 
@@ -404,7 +404,7 @@
         </div>
       </template>
 
-      <div class="ref-scroll">
+      <UiScroll class="ref-scroll" always>
         <div v-if="editingChapter" class="ref-chap-banner">
           <strong>{{ chapterPlainLabel(editingChapter) }}</strong>
           <span v-if="statusLabel(editingChapter.status)" class="ref-chap-status">
@@ -475,7 +475,7 @@
             </div>
           </section>
         </template>
-      </div>
+      </UiScroll>
     </el-drawer>
 
     <el-dialog
@@ -525,7 +525,8 @@
             <span>未收束钩子</span>
             <em v-if="liveOpenHooks.length">{{ liveOpenHooks.length }}</em>
           </div>
-          <ul v-if="liveOpenHooks.length" class="cd-hooks">
+          <UiScroll v-if="liveOpenHooks.length" class="cd-hooks-scroll" always :max-height="280">
+          <ul class="cd-hooks">
             <li v-for="(h, i) in liveOpenHooks" :key="h.id || i" class="cd-hook">
               <span class="cd-hook-mark" aria-hidden="true" />
               <div class="cd-hook-main">
@@ -534,6 +535,7 @@
               </div>
             </li>
           </ul>
+          </UiScroll>
           <div v-else class="cd-empty-block">
             <p>暂无未收钩子</p>
             <span>写章时 AI 会自动维护；收束连写会逐步消化，末章完结时清空。</span>
@@ -567,6 +569,7 @@ import { copyText } from '@/utils/clipboard';
 import { useChapterGenStore } from '@/stores/chapter-gen';
 import NovelTxtEditor from '@/components/NovelTxtEditor.vue';
 import CharacterRelationGraph from '@/components/CharacterRelationGraph.vue';
+import { UiScroll } from '@/components/ui';
 import { useProjectStore } from '@/stores/project';
 import {
   STORY_CAMPS,
@@ -1738,7 +1741,7 @@ watch(
 .char-table-wrap {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   border-radius: 16px;
   border: 1px solid var(--studio-line-strong);
   background: var(--studio-panel);
@@ -1818,7 +1821,7 @@ watch(
 }
 .camp-pill.good {
   background: rgba(74, 222, 128, 0.14);
-  color: #4ade80;
+  color: #60a5fa;
 }
 .camp-pill.evil {
   background: rgba(248, 113, 113, 0.14);
@@ -1948,8 +1951,10 @@ watch(
 .ref-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 14px 16px 20px;
+}
+.ref-scroll :deep(.el-scrollbar__view) {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -2023,12 +2028,8 @@ watch(
 .sider-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding: 12px 10px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  scrollbar-width: thin;
 }
 .meta-block {
   display: flex;
@@ -2340,13 +2341,13 @@ watch(
   flex-direction: column;
   gap: 2px;
   padding: 8px 4px 12px;
-  overflow: auto;
+  overflow: hidden;
   flex: 1;
   min-height: 0;
 }
 .chapter-list.compact {
   padding: 0;
-  overflow: auto;
+  overflow: hidden;
   flex: none;
   max-height: 220px;
 }
@@ -2752,6 +2753,9 @@ watch(
   color: var(--accent-ink);
   background: var(--accent);
 }
+.cd-hooks-scroll {
+  min-height: 0;
+}
 .cd-hooks {
   list-style: none;
   margin: 0;
@@ -2759,8 +2763,6 @@ watch(
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 280px;
-  overflow: auto;
 }
 .cd-hook {
   display: grid;
@@ -2897,7 +2899,7 @@ watch(
 }
 @media (max-width: 960px) {
   .write-page {
-    overflow: auto;
+    overflow: hidden;
   }
   .chapter-workspace {
     grid-template-columns: 1fr;

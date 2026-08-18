@@ -44,8 +44,7 @@ export class FileOssSetupGuard implements CanActivate {
     throw new ServiceUnavailableException({
       statusCode: 503,
       code: 'FILE_OSS_REQUIRED',
-      message:
-        '请先在「设置 → 任务与存储」中配置 MinIO 对象存储（Endpoint + 桶名 + AccessKey），配置后方可使用系统',
+      message: '对象存储不可用：请确认 MinIO 已启动且后端写死配置可连通',
     });
   }
 }

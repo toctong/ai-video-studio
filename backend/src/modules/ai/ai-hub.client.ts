@@ -8,7 +8,6 @@ import {
   defaultModelFor,
 } from '@ai-video-studio/shared';
 import { SettingsService, type SystemSettings } from '../settings/settings.service';
-import { HubService } from '../hub/hub.service';
 import { createVendorHttpClient } from './vendor-http';
 import {
   type HubModality,
@@ -35,10 +34,7 @@ export type HubImageClient = {
  */
 @Injectable()
 export class AiHubClient {
-  constructor(
-    private readonly settings: SettingsService,
-    private readonly hub: HubService,
-  ) {}
+  constructor(private readonly settings: SettingsService) {}
 
   assertVendor(id: string): AiProviderId {
     if (!(AI_PROVIDER_IDS as readonly string[]).includes(id)) {
@@ -59,7 +55,7 @@ export class AiHubClient {
     const raw = String(vendor || '').trim();
     if (!(AI_PROVIDER_IDS as readonly string[]).includes(raw)) {
       throw new BadRequestException(
-        `未知厂商「${raw || '(空)'}」。请使用 Hub 渠道模型，勿依赖内置厂商回退。`,
+        `未知厂商「${raw || '(空)'}」。请在系统设置选择本地渠道模型。`,
       );
     }
     const id = this.assertVendor(raw);
@@ -90,7 +86,7 @@ export class AiHubClient {
     const id = String(modelId || '').trim();
     if (!id) return null;
 
-    const hubModel = await this.hub.findHubModel(id);
+    const hubModel = await this.settings.findLocalModel(id);
     const localModel =
       (s.localModels || []).find((m) => String(m.modelId || '') === id) || undefined;
     const channelSlug = String(
@@ -98,12 +94,13 @@ export class AiHubClient {
     ).trim();
     if (!channelSlug) return null;
 
-    const channel = await this.hub.findHubChannel(channelSlug);
+    const channel = await this.settings.findLocalChannel(channelSlug);
     const local = s.channelCredentials?.[channelSlug];
     const hintBase = String(
       hubModel?.baseUrlHint ||
         localModel?.baseUrlHint ||
-        channel?.baseUrlHint ||
+        channel?.baseUrl ||
+        channel?.hubBaseUrlHint ||
         local?.baseUrl ||
         '',
     );
@@ -177,7 +174,7 @@ export class AiHubClient {
         '未指定模型：请先在系统设置选择默认模型，或在本次请求中传入 model。',
       );
     }
-    const hubModel = await this.hub.findHubModel(id);
+    const hubModel = await this.settings.findLocalModel(id);
     const localModel =
       (s.localModels || []).find((m) => String(m.modelId || '') === id) || undefined;
     const channelSlug = String(
@@ -185,7 +182,7 @@ export class AiHubClient {
     ).trim();
     if (!channelSlug) {
       throw new BadRequestException(
-        `模型「${id}」不在已拉取的 Hub / 本地目录中。请到系统设置从 Hub 拉取渠道与模型。`,
+        `模型「${id}」不在本地渠道目录中。请到系统设置配置渠道与模型。`,
       );
     }
     const cred = this.settings.channelCredential(channelSlug, s);
@@ -197,7 +194,7 @@ export class AiHubClient {
     const hub = await this.resolveHubModalityClient(id, modality, s);
     if (!hub) {
       throw new BadRequestException(
-        `模型「${id}」缺少 ${modality} 调用路径元数据（paths / callPath）。请重新从 Hub 拉取该渠道。`,
+        `模型「${id}」缺少 ${modality} 调用路径元数据（paths / callPath）。请检查本地渠道配置。`,
       );
     }
     return hub;

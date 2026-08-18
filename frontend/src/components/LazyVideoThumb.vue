@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /**
- * 视频缩略图：优先独立 JPG 封面；无封面时用 video + preload=metadata 展示首帧（兼容旧资产）。
+ * 视频缩略图：优先独立 JPG 封面；无封面时进入视口才挂 video src。
  */
 import { computed } from 'vue';
+import { useInView } from '@/composables/useInView';
 
 const props = withDefaults(
   defineProps<{
@@ -23,11 +24,12 @@ const props = withDefaults(
   },
 );
 
+const { el, inView } = useInView({ rootMargin: '160px 0px', once: true });
 const poster = computed(() => String(props.posterUrl || '').trim());
 const videoSrc = computed(() => String(props.src || '').trim());
 const hasPoster = computed(() => !!poster.value);
-/** 无封面时挂 #t=0.001，促使多数浏览器画出首帧 */
 const videoPreviewSrc = computed(() => {
+  if (hasPoster.value || !inView.value) return '';
   const u = videoSrc.value;
   if (!u) return '';
   if (/[?#]/.test(u)) return u;
@@ -36,7 +38,7 @@ const videoPreviewSrc = computed(() => {
 </script>
 
 <template>
-  <div class="lazy-vid-thumb">
+  <div ref="el" class="lazy-vid-thumb">
     <img
       v-if="hasPoster"
       class="poster"

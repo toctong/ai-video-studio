@@ -53,12 +53,10 @@ const title = computed(() => {
   return n ? `「${n}」脚本生成中` : '脚本生成中';
 });
 
-const canOpen = computed(() => Boolean(scriptGenStore.workflowId));
+const canOpen = computed(() => false);
 
 function openWorkflow() {
-  const id = scriptGenStore.workflowId;
-  if (!id) return;
-  void router.push(`/w/${id}`);
+  void router.push('/films');
 }
 </script>
 

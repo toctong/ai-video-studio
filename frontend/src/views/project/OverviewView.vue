@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="page overview-page studio-book nested">
     <header class="tool-head">
       <p class="tool-sub">
@@ -111,7 +111,9 @@
         <strong>大纲摘录</strong>
         <button type="button" class="pill-btn" @click="goOutline">打开全文</button>
       </div>
-      <div v-if="outlineHtml" class="outline-md" v-html="outlineHtml" />
+      <UiScroll v-if="outlineHtml" class="outline-md-scroll" always :max-height="220">
+        <div class="outline-md" v-html="outlineHtml" />
+      </UiScroll>
       <p v-else class="empty-line">点开查看完整分卷结构。</p>
     </section>
 
@@ -215,6 +217,7 @@ import { useAiSettings } from '@/composables/useAiSettings';
 import { useAuthStore } from '@/stores/auth';
 import { useProjectStore } from '@/stores/project';
 import BookScalePicker from '@/components/BookScalePicker.vue';
+import { UiScroll } from '@/components/ui';
 import { clearOutlinePending, markOutlinePending, readOutlinePending } from '@/utils/outline-pending';
 import { scrubOutlineLengthConfusion } from '@/utils/outline-text';
 import { renderMarkdown } from '@/utils/markdown';
@@ -728,9 +731,10 @@ watch(projectId, async () => {
   font-weight: 600;
   color: var(--studio-ink);
 }
-.outline-snip .outline-md {
+.outline-snip .outline-md-scroll {
   max-height: 220px;
-  overflow: auto;
+}
+.outline-snip .outline-md {
   font-size: 13px;
   line-height: 1.55;
   color: var(--studio-text);
@@ -773,7 +777,7 @@ watch(projectId, async () => {
   flex-shrink: 0;
 }
 .status-dot.live {
-  background: #4ade80;
+  background: #60a5fa;
 }
 .status-dot.dim {
   background: var(--studio-muted);

@@ -26,6 +26,12 @@ export type FilmStoryboardShot = {
   dialogue?: string;
   durationSec?: number;
   prompt?: string;
+  /** 分镜关键帧图（可缺省，旧项目兼容） */
+  imageUrl?: string;
+  /** 绑定第 3 步角色资产 id */
+  characterIds?: string[];
+  /** 绑定第 3 步场景资产 id */
+  sceneId?: string;
 };
 
 export type FilmShotVideo = {

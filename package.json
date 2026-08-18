@@ -17,7 +17,12 @@
     "test:shared": "npm run test -w @ai-video-studio/shared",
     "test:backend": "npm run test -w ai-video-studio-backend",
     "test:frontend": "npm run test -w ai-video-studio-frontend",
-    "check:types": "npm run typecheck -w ai-video-studio-frontend"
+    "check:types": "npm run typecheck -w ai-video-studio-frontend",
+    "minio": "docker compose up -d minio",
+    "oss:upload-static": "node scripts/upload-static-to-minio.mjs",
+    "oss:seed-library": "node scripts/seed-nami-library.mjs",
+    "oss:import-library": "node scripts/import-nami-library-folder.mjs",
+    "oss:download-modes": "node scripts/download-nami-modes.mjs"
   },
   "engines": {
     "node": ">=22"

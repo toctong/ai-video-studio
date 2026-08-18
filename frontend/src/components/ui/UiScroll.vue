@@ -1,5 +1,6 @@
 <template>
   <el-scrollbar
+    ref="barRef"
     class="ui-scroll"
     :class="{ 'ui-scroll--always': always, 'ui-scroll--x': horizontal }"
     :native="false"
@@ -15,6 +16,9 @@
 </template>
 
 <script setup lang="ts">
+import { ref, unref } from 'vue';
+import type { ScrollbarInstance } from 'element-plus';
+
 /**
  * Element Plus 虚拟滚动条封装（非原生 scrollbar）
  */
@@ -40,9 +44,25 @@ const emit = defineEmits<{
   scroll: [payload: { scrollTop: number; scrollLeft: number }];
 }>();
 
+const barRef = ref<ScrollbarInstance>();
+
+function wrapEl(): HTMLElement | undefined {
+  return unref(barRef.value?.wrapRef) as HTMLElement | undefined;
+}
+
 function onScroll(payload: { scrollTop: number; scrollLeft: number }) {
   emit('scroll', payload);
 }
+
+defineExpose({
+  wrapEl,
+  scrollTo: (options: ScrollToOptions | number, yCoord?: number) => {
+    barRef.value?.scrollTo(options as never, yCoord);
+  },
+  setScrollTop: (n: number) => barRef.value?.setScrollTop(n),
+  setScrollLeft: (n: number) => barRef.value?.setScrollLeft(n),
+  update: () => barRef.value?.update(),
+});
 </script>
 
 <style scoped>

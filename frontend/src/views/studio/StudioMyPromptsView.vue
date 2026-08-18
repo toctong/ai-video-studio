@@ -141,7 +141,7 @@
               {{ sharingId === detail.id ? '分享中…' : '分享到社区' }}
             </button>
           </div>
-          <div class="detail-scroll">
+          <UiScroll class="detail-scroll" always>
             <h2 class="detail-title">{{ detail.name }}</h2>
             <p v-if="detail.desc" class="detail-desc">{{ detail.desc }}</p>
             <div class="detail-toolbar">
@@ -169,8 +169,10 @@
               </button>
             </div>
             <div class="editable-head"><span>提示词</span></div>
-            <pre class="prompt-block">{{ detail.prompt || '（暂无正文）' }}</pre>
-          </div>
+            <UiScroll class="prompt-block-scroll" always :max-height="320">
+              <pre class="prompt-block">{{ detail.prompt || '（暂无正文）' }}</pre>
+            </UiScroll>
+          </UiScroll>
           <div class="detail-footer">
             <span class="footer-hint">
               <UiIcon name="user" :size="12" />
@@ -313,6 +315,7 @@
         <UiIcon name="search" :size="14" />
         <input v-model="assetPickQ" type="search" placeholder="搜索图片资产…" />
       </label>
+      <UiScroll class="asset-grid-scroll" always :max-height="'min(52vh, 420px)'">
       <div v-loading="assetPickLoading" class="asset-grid">
         <button
           v-for="a in filteredImageAssets"
@@ -322,13 +325,14 @@
           :class="{ on: form.coverUrl === a.url }"
           @click="pickCoverFromAsset(a)"
         >
-          <img :src="a.url" :alt="a.name || '资产'" loading="lazy" />
+          <LazyCoverImage :src="a.url" :alt="a.name || '资产'" />
           <span>{{ a.name || '未命名' }}</span>
         </button>
         <p v-if="!assetPickLoading && !filteredImageAssets.length" class="asset-empty">
           暂无可用图片资产
         </p>
       </div>
+      </UiScroll>
     </el-dialog>
   </div>
 </template>
@@ -363,6 +367,7 @@ import { resolveAssetProjectId } from '@/constants/studio';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import LazyCoverImage from '@/components/LazyCoverImage.vue';
 import VirtualCardGrid from '@/components/VirtualCardGrid.vue';
+import { UiScroll } from '@/components/ui';
 
 type PromptAssetRow = {
   id: string;
@@ -1047,8 +1052,10 @@ onMounted(async () => {
 .detail-scroll {
   flex: 1;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   padding-right: 8px;
+}
+.detail-scroll :deep(.el-scrollbar__view) {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1116,12 +1123,13 @@ onMounted(async () => {
   font-weight: 600;
   color: var(--studio-text);
 }
-.prompt-block {
-  margin: 0;
+.prompt-block-scroll {
   flex: 1;
   min-height: 180px;
-  max-height: 320px;
-  overflow: auto;
+}
+.prompt-block {
+  margin: 0;
+  min-height: 180px;
   padding: 14px 16px;
   border-radius: 12px;
   border: 1px solid var(--studio-glass-2);
@@ -1510,12 +1518,13 @@ onMounted(async () => {
   font: inherit;
   font-size: 13px;
 }
+.mine-asset-dialog .asset-grid-scroll {
+  min-height: 160px;
+}
 .mine-asset-dialog .asset-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: 10px;
-  max-height: min(52vh, 420px);
-  overflow: auto;
   min-height: 160px;
 }
 .mine-asset-dialog .asset-card {
@@ -1535,6 +1544,7 @@ onMounted(async () => {
   border-color: rgba(20, 184, 166, 0.55);
   background: rgba(20, 184, 166, 0.08);
 }
+.mine-asset-dialog .asset-card :deep(.lazy-cover),
 .mine-asset-dialog .asset-card img {
   width: 100%;
   aspect-ratio: 1;
