@@ -10,16 +10,32 @@
   >
     <div class="app-body">
       <aside v-if="!chromeHidden" class="app-rail" aria-label="主导航">
-        <router-link to="/home" class="rail-brand" title="AIGC 视频工厂" aria-label="首页">
+        <router-link
+          :to="brandHome"
+          class="rail-brand"
+          :title="brandTitle"
+          :aria-label="brandTitle"
+        >
           <span class="app-brand-mark" aria-hidden="true">
-            <BrandLogo />
+            <BrandLogo :src="brandLogoUrl" />
           </span>
         </router-link>
+
+        <div v-if="noticeText && showSystemNotice" class="rail-notice" role="status">
+          <button type="button" class="rail-notice-close" aria-label="关闭公告" @click="dismissNotice">
+            ×
+          </button>
+          <strong>{{ noticeTitle }}</strong>
+          <p>{{ noticeText }}</p>
+          <router-link v-if="noticeLink" :to="noticeLink" class="rail-notice-link" @click="dismissNotice">
+            查看
+          </router-link>
+        </div>
 
         <UiScroll class="rail-nav-scroll" always>
         <nav class="app-rail-nav">
           <router-link
-            v-for="item in PLATFORM_NAV"
+            v-for="item in navItems"
             :key="item.path"
             :to="item.path"
             class="app-rail-item"
@@ -78,16 +94,34 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRoute } from 'vue-router';
-import { PLATFORM_NAV } from '@/constants/app-nav';
+import { PLATFORM_NAV, type NavItem } from '@/constants/app-nav';
+import { fetchCmsHome } from '@/api/cms';
+import { resolveMediaUrl } from '@/constants/oss-public';
+import { useAuthStore } from '@/stores/auth';
 import UserMenu from '@/components/UserMenu.vue';
 import JobQueuePanel from '@/components/JobQueuePanel.vue';
 import BrandLogo from '@/components/BrandLogo.vue';
 import UiIcon from '@/components/icons/UiIcon.vue';
+import type { IconName } from '@/components/icons/types';
 import { UiScroll } from '@/components/ui';
 
 const route = useRoute();
+const auth = useAuthStore();
+
+const navItems = ref<NavItem[]>([...PLATFORM_NAV]);
+const brandTitle = ref('AIGC 视频工厂');
+const brandHome = ref('/home');
+const brandLogoUrl = ref('');
+const noticeTitle = ref('');
+const noticeText = ref('');
+const noticeLink = ref('');
+const noticeDismissed = ref(false);
+
+const showSystemNotice = computed(
+  () => !noticeDismissed.value && auth.user?.notifyPrefs?.systemAnnounce !== false,
+);
 
 const promptTabs = [
   { path: '/skills', label: '提示词广场' },
@@ -112,8 +146,50 @@ function isTopSegOn(path: string) {
   return route.path === path;
 }
 
+function dismissNotice() {
+  noticeDismissed.value = true;
+  noticeText.value = '';
+}
+
+function asIcon(name: unknown): IconName {
+  const n = String(name || '').trim() as IconName;
+  const allowed = new Set(PLATFORM_NAV.map((x) => x.icon));
+  return allowed.has(n) ? n : 'home';
+}
+
+async function loadCmsShell() {
+  try {
+    const home = await fetchCmsHome();
+    if (home.nav?.length) {
+      navItems.value = home.nav
+        .filter((x) => x.linkPath)
+        .map((x) => ({
+          path: x.linkPath,
+          label: x.title || x.slug,
+          icon: asIcon(x.meta?.icon),
+          short: x.subtitle || undefined,
+        }));
+    }
+    const brand = home.brand?.[0];
+    if (brand) {
+      brandTitle.value = brand.title || brandTitle.value;
+      brandHome.value = brand.linkPath || '/home';
+      if (brand.coverUrl) brandLogoUrl.value = resolveMediaUrl(brand.coverUrl);
+    }
+    const notice = home.notices?.[0];
+    if (notice && showSystemNotice.value) {
+      noticeTitle.value = notice.title || '公告';
+      noticeText.value = String(notice.description || notice.subtitle || '').trim();
+      noticeLink.value = notice.linkPath || '';
+    }
+  } catch {
+    /* keep defaults */
+  }
+}
+
 onMounted(() => {
   document.body.classList.add('shell-updream', 'shell-nami');
+  void loadCmsShell();
 });
 
 onUnmounted(() => {
@@ -213,3 +289,44 @@ function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`);
 }
 </script>
+
+<style scoped>
+.rail-notice {
+  margin: 0 10px 10px;
+  padding: 10px 12px 12px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--studio-panel) 88%, #3b82f6 12%);
+  color: var(--studio-ink);
+  font-size: 12px;
+  line-height: 1.45;
+  position: relative;
+}
+.rail-notice strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+.rail-notice p {
+  margin: 0;
+  color: var(--studio-muted);
+}
+.rail-notice-close {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  border: 0;
+  background: transparent;
+  color: var(--studio-muted);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+.rail-notice-link {
+  display: inline-block;
+  margin-top: 6px;
+  color: var(--studio-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+</style>

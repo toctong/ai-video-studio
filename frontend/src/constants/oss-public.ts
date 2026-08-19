@@ -1,4 +1,8 @@
-/** 浏览器读 MinIO 的公网前缀（与后端 HARDCODED_FILE_OSS.baseUrl 保持一致） */
+/**
+ * 浏览器侧历史素材公网前缀（仅域名/桶名，不含密钥）。
+ * 新内容请走 CMS / 后台上传返回的完整 URL；此处用于兼容旧 nami 路径改写。
+ * 部署时可按实际 MinIO 公网域名调整。
+ */
 export const OSS_PUBLIC_BASE = 'https://minio-aka.iepose.cn';
 export const OSS_BUCKET = 'ai-video-studio';
 const OSS_INTRANET_BASE = 'http://100.66.1.5:9000';
@@ -24,6 +28,7 @@ export function namiAsset(relPath: string) {
 export function resolveMediaUrl(url: string) {
   const u = String(url || '').trim();
   if (!u) return '';
+  if (u.startsWith('nami/')) return namiAsset(u.slice('nami/'.length));
   if (u.startsWith('/nami/')) return namiAsset(u.slice('/nami/'.length));
   const intranetPrefix = `${OSS_INTRANET_BASE.replace(/\/+$/, '')}/${OSS_BUCKET}/`;
   if (u.startsWith(intranetPrefix)) return ossPublicUrl(u.slice(intranetPrefix.length));

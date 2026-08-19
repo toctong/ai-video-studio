@@ -31,6 +31,7 @@ const baseUser = {
   role: 'admin',
   totpSecret: 'secret-xxx',
   totpEnabled: false,
+  notifyPrefs: null,
   createdAt: new Date(),
 };
 
@@ -42,6 +43,9 @@ describe('AuthService.toPublic', () => {
     assert.equal('passwordHash' in pub, false);
     assert.equal('totpSecret' in pub, false);
     assert.equal(pub.username, 'admin');
+    assert.equal(pub.notifyPrefs.jobDone, true);
+    assert.equal(pub.notifyPrefs.jobFail, true);
+    assert.equal(pub.notifyPrefs.systemAnnounce, true);
   });
 
   it('非 dark 主题统一为 light', () => {

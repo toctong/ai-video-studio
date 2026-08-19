@@ -90,6 +90,7 @@ import {
   type JobQueueHealth,
   type JobRunRow,
 } from '@/api/jobs';
+import { useAuthStore } from '@/stores/auth';
 
 withDefaults(
   defineProps<{
@@ -98,6 +99,7 @@ withDefaults(
   { compact: false },
 );
 
+const auth = useAuthStore();
 const open = ref(false);
 const loading = ref(false);
 const clearing = ref(false);
@@ -106,6 +108,8 @@ const health = ref<JobQueueHealth | null>(null);
 const rows = ref<JobRunRow[]>([]);
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let stopJobsListener: (() => void) | null = null;
+const seenStatus = new Map<string, string>();
+let statusPrimed = false;
 
 const liveCount = computed(
   () => rows.value.filter((j) => j.status === 'queued' || j.status === 'active').length,
@@ -189,12 +193,29 @@ async function refresh(opts?: { quiet?: boolean }) {
     const [h, list] = await Promise.all([fetchJobQueueHealth(), fetchJobs()]);
     health.value = h;
     // Agent 对话触发的出图/出视频不进顶栏队列，只展示图片/视频模式直出及其它任务
-    rows.value = list.filter((j) => !isAgentGenerateJob(j)).slice(0, 40);
+    const next = list.filter((j) => !isAgentGenerateJob(j)).slice(0, 40);
+    notifyStatusChanges(next);
+    rows.value = next;
   } catch (e: any) {
     if (!opts?.quiet) ElMessage.error(e?.message || '加载任务队列失败');
   } finally {
     if (!opts?.quiet) loading.value = false;
   }
+}
+
+function notifyStatusChanges(list: JobRunRow[]) {
+  const prefs = auth.user?.notifyPrefs;
+  for (const j of list) {
+    const prev = seenStatus.get(j.id);
+    seenStatus.set(j.id, j.status);
+    if (!statusPrimed || !prev || prev === j.status) continue;
+    if (j.status === 'completed' && prefs?.jobDone !== false) {
+      ElMessage.success(`${jobTitle(j)} 已完成`);
+    } else if (j.status === 'failed' && prefs?.jobFail !== false) {
+      ElMessage.error(`${jobTitle(j)} 失败${j.error ? `：${j.error}` : ''}`);
+    }
+  }
+  statusPrimed = true;
 }
 
 async function onClear() {

@@ -71,6 +71,20 @@ class UpdateProfileDto {
   theme?: 'light' | 'dark';
 }
 
+class UpdateNotifyPrefsDto {
+  @IsOptional()
+  @IsBoolean()
+  jobDone?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  jobFail?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  systemAnnounce?: boolean;
+}
+
 class ChangeUsernameDto {
   @IsString()
   @MinLength(2)
@@ -175,6 +189,22 @@ export class AuthController {
       nickname: body.nickname,
       theme: body.theme,
     });
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('notify-prefs')
+  async updateNotifyPrefs(
+    @Req() req: { user: { userId: number } },
+    @Body() body: UpdateNotifyPrefsDto,
+  ) {
+    if (
+      body.jobDone === undefined &&
+      body.jobFail === undefined &&
+      body.systemAnnounce === undefined
+    ) {
+      throw new BadRequestException('没有可更新的字段');
+    }
+    return this.auth.updateNotifyPrefs(req.user.userId, body);
   }
 
   @UseGuards(JwtAuthGuard)

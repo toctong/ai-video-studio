@@ -197,6 +197,8 @@ import {
   type PlazaFilterDto,
   type PlazaSkillDto,
 } from '@/api/skills';
+import { fetchCmsByType } from '@/api/cms';
+import { resolveMediaUrl } from '@/constants/oss-public';
 import type { SkillCategory } from '@/utils/skill-catalog';
 import { libraryCoverByCategory } from '@/libraries/cover-images';
 import {
@@ -419,11 +421,33 @@ function useDetailSkill() {
 onMounted(async () => {
   loading.value = true;
   try {
-    const payload = await fetchSkillPlaza();
-    plazaSkills.value = payload.skills.map((s) => ({
+    const [payload, cmsSkills] = await Promise.all([
+      fetchSkillPlaza(),
+      fetchCmsByType('skill').catch(() => []),
+    ]);
+    const fromCms: PlazaSkillDto[] = (cmsSkills || []).map((item) => {
+      const meta = (item.meta || {}) as Record<string, unknown>;
+      return {
+        id: `cms-${item.slug || item.id}`,
+        name: item.title || item.slug || '未命名',
+        desc: String(item.description || item.subtitle || ''),
+        prompt: String(meta.prompt || item.description || item.title || ''),
+        category: (String(meta.category || 'all') as SkillCategory) || 'all',
+        official: meta.official !== false,
+        author: String(meta.author || '官方'),
+        likes: Number(meta.likes) || 0,
+        uses: Number(meta.uses) || 0,
+        mode: (meta.mode as PlazaSkillDto['mode']) || 'image',
+        coverUrl: item.coverUrl ? resolveMediaUrl(item.coverUrl) : undefined,
+        tags: Array.isArray(meta.tags) ? (meta.tags as string[]) : ['官方精选'],
+      };
+    });
+    const remote = payload.skills.map((s) => ({
       ...s,
       tags: sanitizePromptTags(s.tags),
     }));
+    const seen = new Set(fromCms.map((s) => s.id));
+    plazaSkills.value = [...fromCms, ...remote.filter((s) => !seen.has(s.id))];
     filters.value = resolvePromptPlazaFilters(payload.filters, plazaSkills.value);
     filter.value = 'all';
     const hints: Record<string, string> = {};

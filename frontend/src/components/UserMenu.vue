@@ -34,6 +34,19 @@
         <span>账号设置</span>
       </button>
 
+      <a
+        v-if="auth.isAdmin"
+        class="pop-item"
+        role="menuitem"
+        href="/admin/"
+        target="_blank"
+        rel="noopener"
+        @click="open = false"
+      >
+        <UiIcon name="shield" :size="16" />
+        <span>管理后台</span>
+      </a>
+
       <div
         class="pop-item theme-row"
         role="button"
@@ -323,6 +336,8 @@ function logout() {
   font-weight: 500;
   cursor: pointer;
   text-align: left;
+  text-decoration: none;
+  box-sizing: border-box;
 }
 .pop-item:hover {
   background: var(--studio-glass-2);

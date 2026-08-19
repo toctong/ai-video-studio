@@ -12,6 +12,12 @@ import {
   verifyTotpCode,
 } from './totp.util';
 
+export type NotifyPrefs = {
+  jobDone: boolean;
+  jobFail: boolean;
+  systemAnnounce: boolean;
+};
+
 export type PublicUser = {
   id: number;
   username: string;
@@ -20,8 +26,24 @@ export type PublicUser = {
   theme: 'light' | 'dark';
   role: string;
   totpEnabled: boolean;
+  notifyPrefs: NotifyPrefs;
   createdAt: Date;
 };
+
+const DEFAULT_NOTIFY: NotifyPrefs = {
+  jobDone: true,
+  jobFail: true,
+  systemAnnounce: true,
+};
+
+function normalizeNotifyPrefs(raw: User['notifyPrefs'] | null | undefined): NotifyPrefs {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    jobDone: src.jobDone !== false ? DEFAULT_NOTIFY.jobDone : false,
+    jobFail: src.jobFail !== false ? DEFAULT_NOTIFY.jobFail : false,
+    systemAnnounce: src.systemAnnounce !== false ? DEFAULT_NOTIFY.systemAnnounce : false,
+  };
+}
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -72,6 +94,7 @@ export class AuthService implements OnModuleInit {
       theme,
       role: user.role,
       totpEnabled: Boolean(user.totpEnabled),
+      notifyPrefs: normalizeNotifyPrefs(user.notifyPrefs),
       createdAt: user.createdAt,
     };
   }
@@ -164,6 +187,20 @@ export class AuthService implements OnModuleInit {
     await this.users.save(user);
     this.pendingTotp.delete(userId);
     return { ok: true, user: this.toPublic(user) };
+  }
+
+  async updateNotifyPrefs(userId: number, prefs: Partial<NotifyPrefs>) {
+    const user = await this.users.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('用户不存在');
+    const cur = this.toPublic(user).notifyPrefs;
+    user.notifyPrefs = {
+      jobDone: prefs.jobDone !== undefined ? Boolean(prefs.jobDone) : cur.jobDone,
+      jobFail: prefs.jobFail !== undefined ? Boolean(prefs.jobFail) : cur.jobFail,
+      systemAnnounce:
+        prefs.systemAnnounce !== undefined ? Boolean(prefs.systemAnnounce) : cur.systemAnnounce,
+    };
+    await this.users.save(user);
+    return this.toPublic(user);
   }
 
   async updateProfileFields(

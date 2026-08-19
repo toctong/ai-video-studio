@@ -1,13 +1,19 @@
 <template>
   <span class="brand-logo" aria-hidden="true">
-    <img :src="logoUrl" alt="" width="40" height="40" />
+    <img :src="resolved" alt="" width="40" height="40" />
   </span>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { namiAsset } from '@/constants/oss-public';
 
-const logoUrl = namiAsset('logo.png');
+const props = defineProps<{ src?: string }>();
+
+const resolved = computed(() => {
+  const u = String(props.src || '').trim();
+  return u || namiAsset('logo.png');
+});
 </script>
 
 <style scoped>

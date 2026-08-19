@@ -116,8 +116,6 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { namiAsset } from '@/constants/oss-public';
-import { namiDiscoverClips } from '@/constants/nami-discover';
 import LazyCoverImage from '@/components/LazyCoverImage.vue';
 import LazyVideo from '@/components/LazyVideo.vue';
 import {
@@ -125,6 +123,7 @@ import {
   type DiscoverKind,
   type DiscoverPost,
 } from '@/api/discover';
+import { fetchCmsHome, type CmsItem } from '@/api/cms';
 
 type ToolCat = 'video' | 'image' | 'script';
 
@@ -138,7 +137,7 @@ type Tool = {
   badgeImg?: string;
 };
 
-type DiscoverCard = DiscoverPost & {
+type DiscoverCard = Omit<DiscoverPost, 'kind'> & {
   kind: DiscoverKind | 'video';
   videoUrl?: string;
 };
@@ -148,21 +147,9 @@ const activeTab = ref<'all' | ToolCat>('all');
 const discoverKind = ref<'all' | DiscoverKind | 'video'>('all');
 const discoverLoading = ref(false);
 const discoverPosts = ref<DiscoverPost[]>([]);
+const officialDiscover = ref<DiscoverCard[]>([]);
+const tools = ref<Tool[]>([]);
 const playingId = ref('');
-
-const namiDiscoverCards: DiscoverCard[] = namiDiscoverClips().map((clip) => ({
-  id: `nami-discover-${clip.id}`,
-  kind: 'video',
-  title: '',
-  description: '',
-  thumbUrl: clip.cover,
-  videoUrl: clip.video,
-  sourceId: clip.id,
-  authorUserId: 0,
-  authorName: '',
-  shareToken: '',
-  likeCount: 0,
-}));
 
 const tabs = [
   { key: 'all' as const, label: '全部' },
@@ -180,52 +167,47 @@ const discoverTabs = [
   { key: 'production' as const, label: '项目' },
 ];
 
-const tools: Tool[] = [
-  {
-    path: '/films?new=1',
-    title: '制作大片',
-    desc: '六步流水线：剧本 · 设定 · 分镜 · 成片',
-    cover: namiAsset('entry/film.png'),
-    category: 'video',
-  },
-  {
-    path: '/generate',
-    title: 'AI 生视频',
-    desc: '全能参考生视频，支持真人出镜',
-    cover: namiAsset('entry/aiVideo.png'),
-    category: 'video',
-    badgeImg: namiAsset('entry/seedanceBadge.png'),
-  },
-  {
-    path: '/films?new=1&from=article',
-    title: '文章转视频',
-    desc: '输入文章 / 一句话，生成完整短片',
-    cover: namiAsset('entry/article.png'),
-    category: 'video',
-  },
-  {
-    path: '/generate?mode=image',
-    title: 'AI 生图',
-    desc: '文生图 / 参考生图，沉淀到资产库',
-    category: 'image',
-  },
-  {
-    path: '/skills',
-    title: '提示词',
-    desc: '可复用的创作提示词与技能广场',
-    category: 'script',
-  },
-];
+function mapTools(items: CmsItem[]): Tool[] {
+  return items.map((t) => {
+    const meta = (t.meta || {}) as Record<string, unknown>;
+    const category = String(meta.category || 'video') as ToolCat;
+    return {
+      path: t.linkPath || '/home',
+      title: t.title || '',
+      desc: String(t.description || ''),
+      cover: t.coverUrl || undefined,
+      category: ['video', 'image', 'script'].includes(category) ? category : 'video',
+      badge: meta.badge ? String(meta.badge) : undefined,
+      badgeImg: meta.badgeImg ? String(meta.badgeImg) : undefined,
+    };
+  });
+}
+
+function mapOfficialDiscover(items: CmsItem[]): DiscoverCard[] {
+  return items.map((d) => ({
+    id: `cms-discover-${d.slug || d.id}`,
+    kind: 'video' as const,
+    title: d.title || '',
+    description: String(d.description || ''),
+    thumbUrl: d.coverUrl || '',
+    videoUrl: d.videoUrl || '',
+    sourceId: d.slug || d.id,
+    authorUserId: 0,
+    authorName: '',
+    shareToken: '',
+    likeCount: 0,
+  }));
+}
 
 const filteredTools = computed(() =>
   activeTab.value === 'all'
-    ? tools
-    : tools.filter((t) => t.category === activeTab.value),
+    ? tools.value
+    : tools.value.filter((t) => t.category === activeTab.value),
 );
 
 const visibleDiscover = computed((): DiscoverCard[] => {
-  if (discoverKind.value === 'video') return namiDiscoverCards;
-  if (discoverKind.value === 'all') return [...namiDiscoverCards, ...discoverPosts.value];
+  if (discoverKind.value === 'video') return officialDiscover.value;
+  if (discoverKind.value === 'all') return [...officialDiscover.value, ...discoverPosts.value];
   return discoverPosts.value.filter((p) => p.kind === discoverKind.value);
 });
 
@@ -267,6 +249,18 @@ function openDiscover(item: DiscoverCard) {
   ElMessage.info('该内容暂不可打开');
 }
 
+async function loadCms() {
+  try {
+    const cms = await fetchCmsHome();
+    tools.value = mapTools(cms.tools);
+    officialDiscover.value = mapOfficialDiscover(cms.discovers);
+  } catch (e: any) {
+    tools.value = [];
+    officialDiscover.value = [];
+    ElMessage.warning(e?.response?.data?.message || e?.message || '运营内容加载失败');
+  }
+}
+
 async function loadDiscover() {
   discoverLoading.value = true;
   try {
@@ -288,6 +282,7 @@ watch(discoverKind, () => {
 });
 
 onMounted(() => {
+  void loadCms();
   void loadDiscover();
 });
 

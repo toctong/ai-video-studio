@@ -93,36 +93,29 @@
 
         <template v-else-if="section === 'notify'">
           <h2>通知设置</h2>
-          <p class="lead">任务完成、失败与系统公告的提醒偏好。</p>
-          <div class="soon-box">即将开放</div>
-        </template>
-
-        <template v-else-if="section === 'channels'">
-          <h2>渠道</h2>
-          <p class="lead">在本机配置火山方舟等渠道的 API Key，不依赖外部 Hub。</p>
-          <div class="form-stack flat">
-            <ChannelsCredentialsPanel
-              mode="local-channels"
-              :settings="form"
-              @saved="onSaved"
-            />
-          </div>
-        </template>
-
-        <template v-else-if="section === 'models'">
-          <h2>模型</h2>
-          <div class="form-stack flat">
-            <ChannelsCredentialsPanel
-              mode="local-models"
-              :settings="form"
-              @saved="onSaved"
-            />
+          <p class="lead">控制任务与系统公告是否弹出提醒（仅影响本账号）。</p>
+          <div class="form-stack">
+            <label class="switch-row">
+              <span>任务完成提醒</span>
+              <el-switch v-model="notifyForm.jobDone" />
+            </label>
+            <label class="switch-row">
+              <span>任务失败提醒</span>
+              <el-switch v-model="notifyForm.jobFail" />
+            </label>
+            <label class="switch-row">
+              <span>系统公告提醒</span>
+              <el-switch v-model="notifyForm.systemAnnounce" />
+            </label>
+            <button type="button" class="btn-save" :disabled="notifySaving" @click="saveNotify">
+              {{ notifySaving ? '保存中…' : '保存通知偏好' }}
+            </button>
           </div>
         </template>
 
         <template v-else-if="section === 'storage'">
           <h2>任务并发</h2>
-          <p class="lead">同时执行的任务数，保存后立即生效。素材文件在「资产管理」中维护，对象存储由后端写死。</p>
+          <p class="lead">同时执行的任务数，保存后立即生效。</p>
           <div class="form-stack">
             <div class="field">
               <label>任务队列并发</label>
@@ -131,6 +124,10 @@
             <button type="button" class="btn-save" :disabled="saving" @click="saveSystem">
               {{ saving ? '保存中…' : '保存并发' }}
             </button>
+          </div>
+          <div class="admin-hint">
+            <p>对象存储、渠道、模型、CMS 内容请在后台管理配置。</p>
+            <a class="admin-link" href="/admin/" target="_blank" rel="noopener">打开后台 /admin/</a>
           </div>
         </template>
       </section>
@@ -143,14 +140,13 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import api from '@/api';
-import ChannelsCredentialsPanel from '@/components/settings/ChannelsCredentialsPanel.vue';
 import TotpBindPanel from '@/components/settings/TotpBindPanel.vue';
 import { ensureAiSettings } from '@/composables/useAiSettings';
 import { useAuthStore } from '@/stores/auth';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import type { IconName } from '@/components/icons/types';
 
-type SectionId = 'account' | 'notify' | 'channels' | 'models' | 'storage';
+type SectionId = 'account' | 'notify' | 'storage';
 
 const route = useRoute();
 const router = useRouter();
@@ -159,14 +155,13 @@ const auth = useAuthStore();
 const sections: Array<{ id: SectionId; label: string; icon: IconName }> = [
   { id: 'account', label: '账号', icon: 'user' },
   { id: 'notify', label: '通知设置', icon: 'bell' },
-  { id: 'channels', label: '渠道', icon: 'zap' },
-  { id: 'models', label: '模型', icon: 'sparkles' },
   { id: 'storage', label: '任务并发', icon: 'folder' },
 ];
 
 const section = ref<SectionId>('account');
 const saving = ref(false);
 const accountSaving = ref(false);
+const notifySaving = ref(false);
 
 const form = reactive<any>({
   chatProvider: '',
@@ -195,6 +190,19 @@ const accountForm = reactive({
   confirmPassword: '',
 });
 
+const notifyForm = reactive({
+  jobDone: true,
+  jobFail: true,
+  systemAnnounce: true,
+});
+
+function syncNotifyFromAuth() {
+  const p = auth.user?.notifyPrefs;
+  notifyForm.jobDone = p?.jobDone !== false;
+  notifyForm.jobFail = p?.jobFail !== false;
+  notifyForm.systemAnnounce = p?.systemAnnounce !== false;
+}
+
 const initial = computed(() => {
   const n = String(auth.displayName || auth.user?.username || 'U').trim();
   return (n[0] || 'U').toUpperCase();
@@ -219,12 +227,19 @@ function syncSectionFromRoute() {
   }
   if (q === 'username' || q === 'password' || q === 'account') {
     section.value = 'account';
-  } else if (q === 'hub' || q === 'system') {
+  } else if (
+    q === 'hub' ||
+    q === 'system' ||
+    q === 'providers' ||
+    q === 'credentials' ||
+    q === 'local' ||
+    q === 'channels' ||
+    q === 'capability' ||
+    q === 'ark' ||
+    q === 'theme' ||
+    q === 'models'
+  ) {
     section.value = 'storage';
-  } else if (q === 'providers' || q === 'credentials' || q === 'local' || q === 'channels') {
-    section.value = 'channels';
-  } else if (q === 'capability' || q === 'ark' || q === 'theme') {
-    section.value = 'models';
   }
 }
 
@@ -239,6 +254,7 @@ onMounted(async () => {
   syncSectionFromRoute();
   await auth.ensureUser(true);
   accountForm.username = auth.user?.username || '';
+  syncNotifyFromAuth();
   try {
     const { data } = await api.get('/settings');
     Object.assign(form, data);
@@ -262,6 +278,18 @@ async function saveSystem() {
     ElMessage.success('已保存');
   } finally {
     saving.value = false;
+  }
+}
+
+async function saveNotify() {
+  notifySaving.value = true;
+  try {
+    await auth.updateNotifyPrefs({ ...notifyForm });
+    ElMessage.success('通知偏好已保存');
+  } catch (e: any) {
+    ElMessage.error(e?.response?.data?.message || '保存失败');
+  } finally {
+    notifySaving.value = false;
   }
 }
 
@@ -585,6 +613,39 @@ async function saveAccount() {
   display: grid;
   place-items: center;
   font-size: 14px;
+}
+
+.admin-hint {
+  margin-top: 28px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--studio-panel);
+  color: var(--studio-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.admin-hint p {
+  margin: 0 0 10px;
+}
+.admin-link {
+  color: var(--studio-ink);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  max-width: 420px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--studio-panel);
+  color: var(--studio-ink);
+  font-size: 14px;
+  cursor: pointer;
 }
 
 .empty-hint {

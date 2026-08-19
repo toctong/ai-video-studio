@@ -139,9 +139,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { listGenerateAssets, type GenerateAssetItem } from '@/api/generate';
+import { fetchCmsHome, type CmsItem } from '@/api/cms';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import type { IconName } from '@/components/icons/types';
-import { namiAsset } from '@/constants/oss-public';
 import LazyCoverImage from '@/components/LazyCoverImage.vue';
 import LazyVideo from '@/components/LazyVideo.vue';
 
@@ -166,6 +166,17 @@ type Banner = {
   cover: string;
 };
 
+type EntryCard = {
+  path: string;
+  title: string;
+  desc: string;
+  icon: IconName | 'plus';
+  tone: string;
+  badge?: string;
+  badgeImg?: string;
+  cover?: string;
+};
+
 type HeroRole = 'main' | 'prev' | 'next' | 'hidden';
 
 const router = useRouter();
@@ -175,93 +186,9 @@ const activeFilter = ref('all');
 const heroIndex = ref(0);
 let heroTimer: ReturnType<typeof setInterval> | null = null;
 
-const banners: Banner[] = [
-  {
-    id: 'seedance',
-    kicker: 'NEW MODEL',
-    title: 'Seedance 2.5 首发上线',
-    desc: '限时特惠 · 从剧本到成片一条流水线',
-    path: '/films?new=1',
-    cover: namiAsset('banners/banner-01.png'),
-  },
-  {
-    id: 'seedream',
-    kicker: 'IMAGE',
-    title: 'Seedream 5.0 上线',
-    desc: '角色与场景一致性更强，短剧广告更稳',
-    path: '/generate',
-    cover: namiAsset('banners/banner-02.png'),
-  },
-  {
-    id: 'pipeline',
-    kicker: 'PIPELINE',
-    title: '六步大片流水线',
-    desc: '剧本 · 设定 · 资产 · 分镜 · 视频 · 预览',
-    path: '/films?new=1',
-    cover: namiAsset('banners/banner-03.png'),
-  },
-  {
-    id: 'studio',
-    kicker: 'FEATURED',
-    title: 'AI 视频创作工作台',
-    desc: '参考生视频 · 图生视频 · 文生视频',
-    path: '/generate',
-    cover: namiAsset('banners/banner-04.png'),
-  },
-  {
-    id: 'assets',
-    kicker: 'LIBRARY',
-    title: '资产库统一管理',
-    desc: '图片、视频、角色与场景素材集中沉淀',
-    path: '/assets',
-    cover: namiAsset('banners/banner-05.png'),
-  },
-];
-
-const entryCards: Array<{
-  path: string;
-  title: string;
-  desc: string;
-  icon: IconName | 'plus';
-  tone: string;
-  badge?: string;
-  badgeImg?: string;
-  cover?: string;
-}> = [
-  {
-    path: '/films?new=1',
-    title: '制作大片',
-    desc: '精品短剧、短片、商业广告、文旅宣传…',
-    icon: 'plus',
-    tone: 'tone-film',
-    cover: namiAsset('entry/film.png'),
-  },
-  {
-    path: '/generate',
-    title: 'AI 生视频',
-    desc: '全能参考生视频，支持真人出镜',
-    icon: 'clapperboard',
-    tone: 'tone-video',
-    badgeImg: namiAsset('entry/seedanceBadge.png'),
-    cover: namiAsset('entry/aiVideo.png'),
-  },
-  {
-    path: '/films?new=1&from=article',
-    title: '文章转视频',
-    desc: '输入文章 / 一句话，生成完整短片',
-    icon: 'file-text',
-    tone: 'tone-article',
-    cover: namiAsset('entry/article.png'),
-  },
-  {
-    path: '/tools',
-    title: '更多工具',
-    desc: '剧本分集、AI 视频、AI 生图等',
-    icon: 'terminal',
-    tone: 'tone-more',
-    cover: namiAsset('entry/tools.png'),
-  },
-];
+const banners = ref<Banner[]>([]);
+const entryCards = ref<EntryCard[]>([]);
+const demoShowcase = ref<ShowcaseItem[]>([]);
 
 const filterTabs = [
   { key: 'all', label: '全部作品' },
@@ -273,88 +200,48 @@ const filterTabs = [
   { key: 'image', label: 'AI 图片' },
 ];
 
-const demoShowcase: ShowcaseItem[] = [
-  {
-    id: 'demo-1',
-    title: '打火机',
-    subtitle: '商业广告',
-    category: 'ad',
-    url: '',
-    cover: namiAsset('works/work-01.webp'),
-    mediaKind: 'cover',
-    target: '/generate',
-  },
-  {
-    id: 'demo-2',
-    title: 'THE CHOICE OF LUXURY',
-    subtitle: '商业广告',
-    category: 'ad',
-    url: '',
-    cover: namiAsset('works/work-02.webp'),
-    mediaKind: 'cover',
-    target: '/generate',
-  },
-  {
-    id: 'demo-3',
-    title: '霍去病 · 出塞',
-    subtitle: '历史故事',
-    category: 'history',
-    url: '',
-    cover: namiAsset('works/work-03.webp'),
-    mediaKind: 'cover',
-    target: '/films?new=1',
-  },
-  {
-    id: 'demo-4',
-    title: '珊瑚墙突破',
-    subtitle: '游戏动漫',
-    category: 'anime',
-    url: '',
-    cover: namiAsset('works/work-04.webp'),
-    mediaKind: 'cover',
-    target: '/generate',
-  },
-  {
-    id: 'demo-5',
-    title: '都市夜行',
-    subtitle: '真人短剧',
-    category: 'drama',
-    url: '',
-    cover: namiAsset('works/work-05.webp'),
-    mediaKind: 'cover',
-    target: '/films?new=1',
-  },
-  {
-    id: 'demo-6',
-    title: '静谧肖像',
-    subtitle: 'AI 图片',
-    category: 'image',
-    url: '',
-    cover: namiAsset('works/work-06.webp'),
-    mediaKind: 'cover',
-    target: '/assets',
-  },
-  {
-    id: 'demo-7',
-    title: '古风双人',
-    subtitle: '真人短剧',
-    category: 'drama',
-    url: '',
-    cover: namiAsset('works/work-07.webp'),
-    mediaKind: 'cover',
-    target: '/films?new=1',
-  },
-  {
-    id: 'demo-8',
-    title: '赛博夜市',
-    subtitle: '游戏动漫',
-    category: 'anime',
-    url: '',
-    cover: namiAsset('works/work-08.webp'),
-    mediaKind: 'cover',
-    target: '/generate',
-  },
-];
+function mapBanners(items: CmsItem[]): Banner[] {
+  return items.map((b) => ({
+    id: b.slug || b.id,
+    kicker: b.subtitle || '',
+    title: b.title || '',
+    desc: String(b.description || ''),
+    path: b.linkPath || '/home',
+    cover: b.coverUrl || '',
+  }));
+}
+
+function mapEntries(items: CmsItem[]): EntryCard[] {
+  return items.map((e) => {
+    const meta = (e.meta || {}) as Record<string, unknown>;
+    return {
+      path: e.linkPath || '/home',
+      title: e.title || '',
+      desc: String(e.description || ''),
+      icon: (String(meta.icon || 'plus') as IconName | 'plus'),
+      tone: String(meta.tone || ''),
+      badge: meta.badge ? String(meta.badge) : undefined,
+      badgeImg: meta.badgeImg ? String(meta.badgeImg) : undefined,
+      cover: e.coverUrl || undefined,
+    };
+  });
+}
+
+function mapShowcases(items: CmsItem[]): ShowcaseItem[] {
+  return items.map((s) => {
+    const meta = (s.meta || {}) as Record<string, unknown>;
+    return {
+      id: s.slug || s.id,
+      title: s.title || '',
+      subtitle: s.subtitle || '',
+      category: String(meta.category || 'all'),
+      url: '',
+      cover: s.coverUrl || '',
+      mediaKind: (String(meta.mediaKind || 'cover') as ShowcaseItem['mediaKind']),
+      target: s.linkPath || '/generate',
+    };
+  });
+}
 
 const showcaseItems = computed<ShowcaseItem[]>(() => {
   const generated: ShowcaseItem[] = generateAssets.value.map((a) => ({
@@ -367,7 +254,7 @@ const showcaseItems = computed<ShowcaseItem[]>(() => {
     target: '/assets',
   }));
   if (generated.length) return generated;
-  return demoShowcase;
+  return demoShowcase.value;
 });
 
 const filteredShowcase = computed(() => {
@@ -384,7 +271,7 @@ function goPath(raw: string) {
 }
 
 function slideRole(i: number): HeroRole {
-  const n = banners.length;
+  const n = banners.value.length;
   if (!n) return 'hidden';
   const prev = (heroIndex.value - 1 + n) % n;
   const next = (heroIndex.value + 1) % n;
@@ -397,15 +284,16 @@ function slideRole(i: number): HeroRole {
 /** 隐藏卡按滑动方向停在外侧，避免穿过主卡 */
 function slideExitSide(i: number): 'left' | 'right' | 'center' {
   if (slideRole(i) !== 'hidden') return 'center';
-  const n = banners.length;
+  const n = banners.value.length;
+  if (!n) return 'center';
   const dist = (i - heroIndex.value + n) % n;
-  // 更靠近左侧（刚滑走的 prev 一侧）→ 留在左侧外侧
   if (dist > n / 2) return 'left';
   return 'right';
 }
 
 function setHeroIndex(i: number) {
-  const n = banners.length;
+  const n = banners.value.length;
+  if (!n) return;
   const next = ((i % n) + n) % n;
   if (next === heroIndex.value) return;
   heroIndex.value = next;
@@ -427,6 +315,7 @@ function onHeroSlideClick(i: number, b: Banner) {
 
 function restartHeroTimer() {
   if (heroTimer) clearInterval(heroTimer);
+  if (banners.value.length < 2) return;
   heroTimer = setInterval(() => {
     setHeroIndex(heroIndex.value + 1);
   }, 4800);
@@ -439,8 +328,16 @@ function openShowcase(item: ShowcaseItem) {
 async function loadHome() {
   loading.value = true;
   try {
-    const gen = await listGenerateAssets({ take: 24, skip: 0 });
+    const [cms, gen] = await Promise.all([
+      fetchCmsHome(),
+      listGenerateAssets({ take: 24, skip: 0 }),
+    ]);
+    banners.value = mapBanners(cms.banners);
+    entryCards.value = mapEntries(cms.entries);
+    demoShowcase.value = mapShowcases(cms.showcases);
     generateAssets.value = gen.items || [];
+    heroIndex.value = 0;
+    restartHeroTimer();
   } catch (e: any) {
     ElMessage.error(String(e?.response?.data?.message || e?.message || '首页数据加载失败'));
   } finally {
@@ -450,7 +347,6 @@ async function loadHome() {
 
 onMounted(() => {
   void loadHome();
-  restartHeroTimer();
 });
 
 onUnmounted(() => {

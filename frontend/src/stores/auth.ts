@@ -11,6 +11,11 @@ export type AuthUser = {
   theme?: 'light' | 'dark';
   role: string;
   totpEnabled?: boolean;
+  notifyPrefs?: {
+    jobDone?: boolean;
+    jobFail?: boolean;
+    systemAnnounce?: boolean;
+  };
   createdAt?: string | Date;
 };
 
@@ -38,6 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
   });
 
   const isAuthenticated = computed(() => !!user.value);
+  const isAdmin = computed(() => user.value?.role === 'admin');
 
   function setUser(u: AuthUser | null, options?: { bumpAvatar?: boolean }) {
     user.value = u;
@@ -143,6 +149,16 @@ export const useAuthStore = defineStore('auth', () => {
     return data as AuthUser;
   }
 
+  async function updateNotifyPrefs(prefs: {
+    jobDone?: boolean;
+    jobFail?: boolean;
+    systemAnnounce?: boolean;
+  }) {
+    const { data } = await api.put('/auth/notify-prefs', prefs);
+    applyUserProfile(data);
+    return data as AuthUser;
+  }
+
   async function logout() {
     try {
       await api.post('/auth/logout');
@@ -160,6 +176,7 @@ export const useAuthStore = defineStore('auth', () => {
     displayName,
     avatarUrl,
     isAuthenticated,
+    isAdmin,
     login,
     logout,
     hydrate,
@@ -172,5 +189,6 @@ export const useAuthStore = defineStore('auth', () => {
     changePassword,
     uploadAvatar,
     applyLibraryAvatar,
+    updateNotifyPrefs,
   };
 });
