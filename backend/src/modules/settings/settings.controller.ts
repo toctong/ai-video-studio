@@ -2,6 +2,8 @@ import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nes
 import { IsNumber, IsObject, IsOptional, IsString, Min, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { Roles } from '../auth/roles.decorator';
+import { RolesGuard } from '../auth/roles.guard';
 import { FileOssService } from '../storage/file-oss.service';
 import { SkipFileOssSetup } from '../storage/file-oss-setup.guard';
 import { SettingsService } from './settings.service';
@@ -60,6 +62,8 @@ export class SettingsController {
   }
 
   @Put()
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'ops')
   async update(@Body() body: UpdateSettingsDto) {
     const data = await this.settings.update(body as any);
     this.fileOss.invalidateCache();
@@ -74,6 +78,8 @@ export class SettingsController {
   }
 
   @Post('file-oss/test')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'ops')
   async testFileOss() {
     this.fileOss.invalidateCache();
     try {
@@ -85,6 +91,8 @@ export class SettingsController {
   }
 
   @Delete('channels/:slug')
+  @UseGuards(RolesGuard)
+  @Roles('admin', 'ops')
   removeLocalChannel(@Param('slug') slug: string) {
     return this.settings.removeLocalChannel(slug);
   }

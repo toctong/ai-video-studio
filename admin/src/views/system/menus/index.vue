@@ -15,14 +15,17 @@
           <template #prefix><icon-search /></template>
         </a-input>
         <a-button type="primary" @click="load">搜索</a-button>
+        <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
       </div>
 
       <a-table
+        v-model:selectedKeys="selectedKeys"
         row-key="id"
         :loading="loading"
         :data="list"
         :pagination="false"
         :bordered="false"
+        :row-selection="rowSelection"
         default-expand-all-rows
       >
         <template #columns>
@@ -140,6 +143,9 @@ import { onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
 import PageHeader from '@/components/PageHeader.vue';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const { selectedKeys, rowSelection, hasSelection, batchLoading, batchDelete } = useTableBatch();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -239,6 +245,10 @@ async function remove(id: string) {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '删除失败');
   }
+}
+
+function batchRemove() {
+  return batchDelete((id) => api.delete(`/admin/menus/${id}`), '个菜单', load);
 }
 
 onMounted(load);

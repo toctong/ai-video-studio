@@ -18,13 +18,17 @@
           <a-option value="cancelled">cancelled</a-option>
         </a-select>
         <a-button type="primary" @click="search">筛选</a-button>
+        <a-button :disabled="!hasSelection" :loading="batchLoading" @click="batchCancel">批量取消</a-button>
+        <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
       </div>
       <a-table
+        v-model:selectedKeys="selectedKeys"
         row-key="id"
         :loading="loading"
         :data="list"
         :pagination="pagination"
         :bordered="false"
+        :row-selection="rowSelection"
         stripe
         @page-change="onPage"
         @page-size-change="onPageSize"
@@ -72,6 +76,16 @@ import dayjs from 'dayjs';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
 import PageHeader from '@/components/PageHeader.vue';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const {
+  selectedKeys,
+  rowSelection,
+  hasSelection,
+  batchLoading,
+  runBatchAction,
+  batchDelete,
+} = useTableBatch();
 
 const loading = ref(false);
 const status = ref<string | undefined>();
@@ -154,6 +168,35 @@ async function clearFinished() {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '清空失败');
   }
+}
+
+function batchRemove() {
+  return batchDelete((id) => api.delete(`/admin/jobs/${id}`), '个任务', load);
+}
+
+async function batchCancel() {
+  const cancellable = selectedKeys.value.filter((id) => {
+    const row = list.value.find((r) => String(r.id) === String(id));
+    return row && (row.status === 'queued' || row.status === 'active');
+  });
+  if (!cancellable.length) {
+    Message.warning('所选任务中没有可取消的（仅 queued/active 可取消）');
+    return;
+  }
+  await runBatchAction({
+    title: '批量取消',
+    content: `确认取消选中的 ${cancellable.length} 个进行中的任务？`,
+    action: async () => {
+      const results = await Promise.allSettled(
+        cancellable.map((id) => api.post(`/admin/jobs/${id}/cancel`)),
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const fail = results.length - ok;
+      if (fail === 0) Message.success(`已取消 ${ok} 个任务`);
+      else Message.warning(`成功 ${ok} 个，失败 ${fail} 个`);
+    },
+    onDone: load,
+  });
 }
 
 onMounted(load);

@@ -68,7 +68,7 @@ const MENU_SEEDS: MenuSeed[] = [
     key: 'cms',
     parentKey: 'ops',
     type: 2,
-    title: '内容运营',
+    title: '内容总览',
     path: '/cms',
     icon: 'icon-apps',
     component: 'ops/cms/index',
@@ -76,15 +76,114 @@ const MENU_SEEDS: MenuSeed[] = [
     sort: 10,
   },
   {
+    key: 'cms-banner',
+    parentKey: 'ops',
+    type: 2,
+    title: '轮播',
+    path: '/cms/banner',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:banner:view',
+    sort: 11,
+  },
+  {
+    key: 'cms-entry',
+    parentKey: 'ops',
+    type: 2,
+    title: '入口卡',
+    path: '/cms/entry',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:entry:view',
+    sort: 12,
+  },
+  {
+    key: 'cms-showcase',
+    parentKey: 'ops',
+    type: 2,
+    title: '精选作品',
+    path: '/cms/showcase',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:showcase:view',
+    sort: 13,
+  },
+  {
+    key: 'cms-discover',
+    parentKey: 'ops',
+    type: 2,
+    title: '官方发现',
+    path: '/cms/discover',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:discover:view',
+    sort: 14,
+  },
+  {
+    key: 'cms-tool',
+    parentKey: 'ops',
+    type: 2,
+    title: '工具箱',
+    path: '/cms/tool',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:tool:view',
+    sort: 15,
+  },
+  {
+    key: 'cms-skill',
+    parentKey: 'ops',
+    type: 2,
+    title: '技能精选',
+    path: '/cms/skill',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:skill:view',
+    sort: 16,
+  },
+  {
+    key: 'cms-nav',
+    parentKey: 'ops',
+    type: 2,
+    title: '侧栏导航',
+    path: '/cms/nav',
+    icon: 'icon-menu',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:nav:view',
+    sort: 17,
+  },
+  {
+    key: 'cms-brand',
+    parentKey: 'ops',
+    type: 2,
+    title: '品牌 Logo',
+    path: '/cms/brand',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:brand:view',
+    sort: 18,
+  },
+  {
+    key: 'cms-notice',
+    parentKey: 'ops',
+    type: 2,
+    title: '公告',
+    path: '/cms/notice',
+    icon: 'icon-apps',
+    component: 'ops/cms/CmsTypePage',
+    permission: 'cms:notice:view',
+    sort: 19,
+  },
+  {
     key: 'discover',
     parentKey: 'ops',
     type: 2,
-    title: '发现广场',
+    title: '用户发布',
     path: '/discover',
     icon: 'icon-apps',
     component: 'ops/discover/index',
     permission: 'discover:view',
-    sort: 20,
+    sort: 30,
   },
 
   { key: 'resource', type: 1, title: '资源配置', icon: 'icon-storage', sort: 30 },
@@ -321,9 +420,33 @@ export class RbacService implements OnModuleInit {
             status: '1',
           }),
         );
-      } else if (parentId && row.parentId !== parentId) {
-        row.parentId = parentId;
-        await this.menus.save(row);
+      } else {
+        let dirty = false;
+        if (parentId && row.parentId !== parentId) {
+          row.parentId = parentId;
+          dirty = true;
+        }
+        if (seed.title && row.title !== seed.title) {
+          row.title = seed.title;
+          dirty = true;
+        }
+        if (seed.icon != null && row.icon !== (seed.icon || '')) {
+          row.icon = seed.icon || '';
+          dirty = true;
+        }
+        if (seed.component != null && row.component !== (seed.component || '')) {
+          row.component = seed.component || '';
+          dirty = true;
+        }
+        if (seed.permission != null && row.permission !== (seed.permission || '')) {
+          row.permission = seed.permission || '';
+          dirty = true;
+        }
+        if (seed.sort != null && row.sort !== seed.sort) {
+          row.sort = seed.sort;
+          dirty = true;
+        }
+        if (dirty) await this.menus.save(row);
       }
       keyToId.set(seed.key, row.id);
     }
@@ -352,8 +475,25 @@ export class RbacService implements OnModuleInit {
       where: { code: 'ops' },
       relations: ['menus'],
     });
+    const opsPaths = [
+      '/dashboard',
+      '/cms',
+      '/cms/banner',
+      '/cms/entry',
+      '/cms/showcase',
+      '/cms/discover',
+      '/cms/tool',
+      '/cms/skill',
+      '/cms/nav',
+      '/cms/brand',
+      '/cms/notice',
+      '/discover',
+      '/projects',
+      '/productions',
+      '/assets',
+      '/jobs',
+    ];
     if (!opsRole) {
-      const opsPaths = ['/dashboard', '/cms', '/discover', '/projects', '/productions', '/assets', '/jobs'];
       const opsMenus = await this.menus.find({
         where: [{ path: In(opsPaths) }, { title: In(['概览', '运营中心', '业务数据']) }],
       });
@@ -371,6 +511,22 @@ export class RbacService implements OnModuleInit {
         menus: [...parents, ...opsMenus],
       });
       await this.roles.save(opsRole);
+    } else {
+      const opsMenus = await this.menus.find({
+        where: [{ path: In(opsPaths) }, { title: In(['概览', '运营中心', '业务数据']) }],
+      });
+      const parentIds = [...new Set(opsMenus.map((m) => m.parentId).filter(Boolean))];
+      const parents = parentIds.length
+        ? await this.menus.find({ where: { id: In(parentIds) } })
+        : [];
+      const desired = [...parents, ...opsMenus];
+      const desiredIds = new Set(desired.map((m) => m.id));
+      const currentIds = new Set((opsRole.menus || []).map((m) => m.id));
+      const missing = [...desiredIds].some((id) => !currentIds.has(id));
+      if (missing || (opsRole.menus?.length || 0) < desired.length) {
+        opsRole.menus = desired;
+        await this.roles.save(opsRole);
+      }
     }
 
     let userRole = await this.roles.findOne({ where: { code: 'user' } });

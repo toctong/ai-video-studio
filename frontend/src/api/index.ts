@@ -21,23 +21,14 @@ api.interceptors.response.use(
   (r) => r,
   (err) => {
     const status = err?.response?.status;
-    const code = err?.response?.data?.code;
     const url = String(err?.config?.url || '');
 
     if (status === 401) {
-      // hydrate 用的 /auth/me 失败时留给路由守卫处理，避免闪跳
+      // /auth/me、/auth/login 失败不弹框，避免启动闪屏
       if (!url.includes('/auth/me') && !url.includes('/auth/login')) {
         const auth = useAuthStore();
         auth.clearSession();
-        if (!location.pathname.includes('/login')) location.href = '/login';
-      }
-    } else if (status === 503 && code === 'FILE_OSS_REQUIRED') {
-      // 登录页不要强跳，避免「登不进去」的错觉
-      if (
-        !location.pathname.includes('/settings') &&
-        !location.pathname.includes('/login')
-      ) {
-        location.href = '/settings?section=storage';
+        auth.openLoginDialog();
       }
     }
     return Promise.reject(err);

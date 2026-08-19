@@ -47,16 +47,13 @@ export function explainRunError(raw?: string): FriendlyError {
     return hit('内容安全审核未通过', '请修改提示词或参考图后重试。');
   }
   if (/SignatureDoesNotMatch|not match the signature/i.test(msg)) {
-    return hit(
-      '对象存储签名校验失败',
-      '请到「设置 → 对象存储」确认 MinIO AccessKey，公网签名失败时可填内网 API Endpoint（:9000）。',
-    );
+    return hit('存储签名校验失败', '请稍后重试，或联系管理员检查存储配置。');
   }
-  if (/对象存储未配置|FileOSS 未配置|FILE_OSS_REQUIRED|MinIO/i.test(msg) && /未配置|配置/i.test(msg)) {
-    return hit('对象存储未配置或不可用', '请到「设置 → 任务与存储 → 对象存储」配齐后重试。');
+  if (/对象存储未配置|FileOSS 未配置|FILE_OSS_REQUIRED|MinIO/i.test(msg) && /未配置|不可用|配置/i.test(msg)) {
+    return hit('存储服务暂不可用', '请稍后重试。');
   }
   if (/fetchRemote|素材入库|未能入库|persistMedia|keep source/i.test(msg)) {
-    return hit('媒体未能写入对象存储', '检查 MinIO 连通与公网读地址；也可稍后重试该节点。');
+    return hit('媒体保存失败', '请稍后重试。');
   }
   if (/ENOTFOUND|ECONNREFUSED|ETIMEDOUT|network|fetch failed|socket hang up/i.test(msg)) {
     return hit('网络请求失败', '请检查本机网络、上游 API 与对象存储是否可达后重试。');
@@ -71,13 +68,13 @@ export function explainRunError(raw?: string): FriendlyError {
     return hit('运行超时', '可点「重试」；视频生成较慢时可稍后再试。');
   }
   if (/status code 401|Unauthorized|invalid.?api.?key|Incorrect API key/i.test(msg)) {
-    return hit('鉴权失败', '请检查系统设置里对应渠道的 API Key。');
+    return hit('鉴权失败', '请到后台检查对应渠道的 API Key 是否已配置且有效。');
   }
   if (/status code 403|AccessDenied|not authorized|无权限/i.test(msg)) {
     return hit('无权限调用该模型或资源', '请确认已在对应平台开通模型，且密钥有权限。');
   }
   if (/status code 404|model.?not.?found|NotFound/i.test(msg)) {
-    return hit('模型或资源不存在', '请在节点里换一个可用模型，或到设置核对渠道模型列表。');
+    return hit('模型或资源不存在', '请在节点里换一个可用模型，或到后台核对渠道与模型配置。');
   }
   if (/status code 429|rate limit|Too Many Requests|配额|quota/i.test(msg)) {
     return hit('请求过于频繁或配额不足', '请稍后再试，或检查上游账户额度。');
@@ -105,7 +102,7 @@ export function explainRunError(raw?: string): FriendlyError {
   if (/^(出图失败|封面出图失败|生图失败|AI 生图失败)$/.test(msg)) {
     return {
       reason: '出图失败（上游未返回具体原因）',
-      tip: '请重启后端后再重试该节点；新版本会写入 HTTP 状态、请求地址与上游原文。也可点顶栏「接口日志」对照同时间记录。常见原因：默认模型 gpt-image 渠道额度/权限、尺寸不支持、Hub 网关空响应。',
+      tip: '请重启后端后再重试该节点；新版本会写入 HTTP 状态、请求地址与上游原文。常见原因：默认模型渠道额度/权限、尺寸不支持、Hub 网关空响应。',
       raw: msg,
     };
   }

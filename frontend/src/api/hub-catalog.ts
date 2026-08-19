@@ -1,4 +1,3 @@
-import api from '@/api';
 import type { AiCapability, AiModelOption } from '@/constants/ai-providers';
 
 export type HubChannelDto = {
@@ -43,12 +42,6 @@ export type HubModelDto = {
   pulledAt?: string;
   updatedAt?: string;
 };
-
-/** 移除本端渠道及其模型快照 */
-export async function removeLocalHubChannel(slug: string) {
-  const { data } = await api.delete(`/settings/channels/${encodeURIComponent(slug)}`);
-  return data;
-}
 
 export function hubModelToOption(m: HubModelDto): AiModelOption & {
   source: 'hub';

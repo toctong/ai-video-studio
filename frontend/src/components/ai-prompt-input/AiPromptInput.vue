@@ -1182,7 +1182,7 @@ defineExpose({
               v-if="isAgentMode && showModelChip"
               type="button"
               class="chip chip-model readonly"
-              title="对话模型（在设置中更换）"
+              title="对话模型（在后台配置）"
             >
               <UiIcon name="cpu" :size="14" class="chip-ico" />
               <span class="chip-ellipsis">{{ activeModelLabel }}</span>
@@ -1237,7 +1237,7 @@ defineExpose({
                     <UiIcon v-if="prefs.model === m.value" name="check" :size="14" class="jimeng-check-ico" />
                   </button>
                 </UiScroll>
-                <div v-else class="jimeng-empty">暂无可用模型，请先在设置中配置 AI 提供商</div>
+                <div v-else class="jimeng-empty">暂无可用模型，请在后台配置 AI 渠道与模型</div>
               </div>
             </el-popover>
 

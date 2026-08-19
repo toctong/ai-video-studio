@@ -1,16 +1,24 @@
 <template>
-  <div class="page-card">
-    <div class="page-toolbar">
-      <a-space wrap>
-        <a-input v-model="q" placeholder="搜索标题" allow-clear style="width: 240px" @press-enter="search" />
-        <a-button type="primary" @click="search">搜索</a-button>
-      </a-space>
-    </div>
-    <a-table
+  <div>
+    <PageHeader
+      title="用户发布"
+      description="前台用户分享到发现广场的工作流 / 技能 / 制作等内容。首页「官方发现」请在 CMS → 官方发现 配置。"
+    />
+
+    <div class="page-card">
+      <div class="page-toolbar">
+        <a-space wrap>
+          <a-input v-model="q" placeholder="搜索标题" allow-clear style="width: 240px" @press-enter="search" />
+          <a-button type="primary" @click="search">搜索</a-button>
+          <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
+        </a-space>
+      </div>    <a-table
+      v-model:selectedKeys="selectedKeys"
       row-key="id"
       :loading="loading"
       :data="list"
       :pagination="pagination"
+      :row-selection="rowSelection"
       @page-change="onPage"
       @page-size-change="onPageSize"
     >
@@ -31,6 +39,7 @@
         </a-table-column>
       </template>
     </a-table>
+    </div>
   </div>
 </template>
 
@@ -39,6 +48,10 @@ import { onMounted, reactive, ref } from 'vue';
 import dayjs from 'dayjs';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
+import PageHeader from '@/components/PageHeader.vue';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const { selectedKeys, rowSelection, hasSelection, batchLoading, batchDelete } = useTableBatch();
 
 const loading = ref(false);
 const q = ref('');
@@ -94,6 +107,10 @@ async function remove(id: string) {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '删除失败');
   }
+}
+
+function batchRemove() {
+  return batchDelete((id) => api.delete(`/admin/discover/${id}`), '条内容', load);
 }
 
 onMounted(load);

@@ -413,12 +413,15 @@ export class AdminService {
     return this.cms.remove(id);
   }
 
-  async uploadCmsMedia(file: {
-    buffer?: Buffer;
-    mimetype?: string;
-    originalname?: string;
-    size?: number;
-  }) {
+  async uploadCmsMedia(
+    file: {
+      buffer?: Buffer;
+      mimetype?: string;
+      originalname?: string;
+      size?: number;
+    },
+    preferredName?: string,
+  ) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('请选择文件');
     }
@@ -435,16 +438,26 @@ export class AdminService {
     if ((file.size || file.buffer.length) > max) {
       throw new BadRequestException(isVideo ? '视频请小于 200MB' : '图片请小于 20MB');
     }
-    const ext =
-      (file.originalname || '').match(/\.[a-z0-9]+$/i)?.[0]?.toLowerCase() ||
-      (isVideo ? '.mp4' : '.jpg');
-    const key = await this.fileOss.buildKey('cms', `media${ext}`, 'cms');
+    const srcName = String(file.originalname || '').trim();
+    const fallbackExt = isVideo ? '.mp4' : '.jpg';
+    const srcExt = srcName.match(/\.[a-z0-9]+$/i)?.[0]?.toLowerCase() || fallbackExt;
+    const rawPreferred = String(preferredName || '').trim();
+    let fileName = '';
+    if (rawPreferred) {
+      const base = rawPreferred.replace(/\\/g, '/').split('/').pop() || '';
+      const cleaned = base.replace(/[^\w.\-()+]/g, '_');
+      fileName = cleaned.includes('.') ? cleaned : `${cleaned || 'media'}${srcExt}`;
+    } else {
+      fileName = srcName ? srcName.replace(/[^\w.\-()+]/g, '_') : `media${srcExt}`;
+      if (!/\.[a-z0-9]+$/i.test(fileName)) fileName = `${fileName}${srcExt}`;
+    }
+    const key = await this.fileOss.buildKey('cms', fileName, 'cms');
     const put = await this.fileOss.putObject({
       key,
       body: file.buffer,
       contentType: mime || (isVideo ? 'video/mp4' : 'image/jpeg'),
-      metadata: { kind: 'cms-media' },
+      metadata: { kind: 'cms-media', original: srcName.slice(0, 120) },
     });
-    return { url: put.url, key: put.key };
+    return { url: put.url, key: put.key, fileName };
   }
 }

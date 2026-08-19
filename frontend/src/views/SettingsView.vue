@@ -111,22 +111,8 @@
               {{ notifySaving ? '保存中…' : '保存通知偏好' }}
             </button>
           </div>
-        </template>
-
-        <template v-else-if="section === 'storage'">
-          <h2>任务并发</h2>
-          <p class="lead">同时执行的任务数，保存后立即生效。</p>
-          <div class="form-stack">
-            <div class="field">
-              <label>任务队列并发</label>
-              <el-input-number v-model="form.jobConcurrency" :min="1" :max="32" />
-            </div>
-            <button type="button" class="btn-save" :disabled="saving" @click="saveSystem">
-              {{ saving ? '保存中…' : '保存并发' }}
-            </button>
-          </div>
           <div class="admin-hint">
-            <p>对象存储、渠道、模型、CMS 内容请在后台管理配置。</p>
+            <p>任务并发、对象存储、渠道、模型、CMS 等内容请在后台管理配置。</p>
             <a class="admin-link" href="/admin/" target="_blank" rel="noopener">打开后台 /admin/</a>
           </div>
         </template>
@@ -139,14 +125,12 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import api from '@/api';
 import TotpBindPanel from '@/components/settings/TotpBindPanel.vue';
-import { ensureAiSettings } from '@/composables/useAiSettings';
 import { useAuthStore } from '@/stores/auth';
 import UiIcon from '@/components/icons/UiIcon.vue';
 import type { IconName } from '@/components/icons/types';
 
-type SectionId = 'account' | 'notify' | 'storage';
+type SectionId = 'account' | 'notify';
 
 const route = useRoute();
 const router = useRouter();
@@ -155,33 +139,11 @@ const auth = useAuthStore();
 const sections: Array<{ id: SectionId; label: string; icon: IconName }> = [
   { id: 'account', label: '账号', icon: 'user' },
   { id: 'notify', label: '通知设置', icon: 'bell' },
-  { id: 'storage', label: '任务并发', icon: 'folder' },
 ];
 
 const section = ref<SectionId>('account');
-const saving = ref(false);
 const accountSaving = ref(false);
 const notifySaving = ref(false);
-
-const form = reactive<any>({
-  chatProvider: '',
-  imageProvider: '',
-  videoProvider: '',
-  providerCredentials: {},
-  channelCredentials: {},
-  localChannels: {},
-  localModels: [],
-  defaultChatModel: '',
-  defaultImageModel: '',
-  defaultVideoModel: '',
-  jobConcurrency: 8,
-  fileOss: {
-    baseUrl: '',
-    bucket: '',
-    keyPrefix: '',
-    configured: false,
-  },
-});
 
 const accountForm = reactive({
   username: '',
@@ -213,11 +175,6 @@ function goBack() {
   else router.push('/home');
 }
 
-function onSaved(data: any) {
-  Object.assign(form, data);
-  void ensureAiSettings(true);
-}
-
 function syncSectionFromRoute() {
   const q = String(route.query.section || '').trim();
   const ids = sections.map((s) => s.id);
@@ -227,7 +184,11 @@ function syncSectionFromRoute() {
   }
   if (q === 'username' || q === 'password' || q === 'account') {
     section.value = 'account';
-  } else if (
+    return;
+  }
+  // 旧链接：任务并发 / 系统配置类入口已迁到后台，前台落到通知页并提示去后台
+  if (
+    q === 'storage' ||
     q === 'hub' ||
     q === 'system' ||
     q === 'providers' ||
@@ -239,7 +200,7 @@ function syncSectionFromRoute() {
     q === 'theme' ||
     q === 'models'
   ) {
-    section.value = 'storage';
+    section.value = 'notify';
   }
 }
 
@@ -253,33 +214,27 @@ watch(section, (id) => {
 onMounted(async () => {
   syncSectionFromRoute();
   await auth.ensureUser(true);
+  if (!auth.isAuthenticated) {
+    auth.openLoginDialog();
+  }
   accountForm.username = auth.user?.username || '';
   syncNotifyFromAuth();
-  try {
-    const { data } = await api.get('/settings');
-    Object.assign(form, data);
-  } catch {
-    /* ignore */
-  }
 });
+
+watch(
+  () => auth.isAuthenticated,
+  (ok) => {
+    if (ok) {
+      accountForm.username = auth.user?.username || '';
+      syncNotifyFromAuth();
+    }
+  },
+);
 
 watch(
   () => route.query.section,
   () => syncSectionFromRoute(),
 );
-
-async function saveSystem() {
-  saving.value = true;
-  try {
-    const { data } = await api.put('/settings', {
-      jobConcurrency: form.jobConcurrency,
-    });
-    onSaved(data);
-    ElMessage.success('已保存');
-  } finally {
-    saving.value = false;
-  }
-}
 
 async function saveNotify() {
   notifySaving.value = true;
@@ -656,44 +611,6 @@ async function saveAccount() {
   font-size: 13px;
   border: 1px dashed var(--line);
   border-radius: 14px;
-}
-
-.form-stack.flat {
-  max-width: none;
-}
-.form-stack.flat :deep(.plaza-head) {
-  margin-bottom: 14px;
-}
-.form-stack.flat :deep(.cred-card),
-.form-stack.flat :deep(.ark-card) {
-  border: 1px solid var(--studio-line-strong);
-  border-radius: 14px;
-  background: var(--studio-panel);
-  margin-bottom: 0;
-}
-.form-stack.flat :deep(.el-input__wrapper),
-.form-stack.flat :deep(.el-input-number) {
-  background: var(--studio-panel) !important;
-  box-shadow: 0 0 0 1px var(--studio-line-strong) inset !important;
-}
-.form-stack.flat :deep(.el-input__inner) {
-  color: var(--studio-ink) !important;
-}
-.form-stack.flat :deep(.el-button) {
-  --el-button-bg-color: var(--studio-panel-3);
-  --el-button-border-color: var(--studio-line-strong);
-  --el-button-text-color: var(--studio-ink);
-  --el-button-hover-bg-color: var(--studio-glass-2);
-  --el-button-hover-border-color: var(--studio-line-bright);
-  --el-button-hover-text-color: var(--studio-ink);
-}
-.form-stack.flat :deep(.el-button--primary) {
-  --el-button-bg-color: var(--studio-ink);
-  --el-button-border-color: var(--studio-ink);
-  --el-button-text-color: var(--studio-bg);
-  --el-button-hover-bg-color: var(--studio-ink);
-  --el-button-hover-border-color: var(--studio-ink);
-  --el-button-hover-text-color: var(--studio-bg);
 }
 
 @media (max-width: 800px) {

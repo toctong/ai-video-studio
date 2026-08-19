@@ -185,6 +185,14 @@
   font-weight: 500;
   letter-spacing: 0.02em;
   line-height: 1.2;
+  max-width: 100%;
+  text-align: center;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .app-rail-item:hover {
   color: rgba(255, 255, 255, 0.92);

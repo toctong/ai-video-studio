@@ -21,17 +21,6 @@
           </span>
         </router-link>
 
-        <div v-if="noticeText && showSystemNotice" class="rail-notice" role="status">
-          <button type="button" class="rail-notice-close" aria-label="关闭公告" @click="dismissNotice">
-            ×
-          </button>
-          <strong>{{ noticeTitle }}</strong>
-          <p>{{ noticeText }}</p>
-          <router-link v-if="noticeLink" :to="noticeLink" class="rail-notice-link" @click="dismissNotice">
-            查看
-          </router-link>
-        </div>
-
         <UiScroll class="rail-nav-scroll" always>
         <nav class="app-rail-nav">
           <router-link
@@ -52,7 +41,7 @@
         </UiScroll>
 
         <div class="rail-footer">
-          <JobQueuePanel compact />
+          <JobQueuePanel v-if="auth.isAuthenticated" compact />
           <UserMenu rail />
         </div>
       </aside>
@@ -114,14 +103,6 @@ const navItems = ref<NavItem[]>([...PLATFORM_NAV]);
 const brandTitle = ref('AIGC 视频工厂');
 const brandHome = ref('/home');
 const brandLogoUrl = ref('');
-const noticeTitle = ref('');
-const noticeText = ref('');
-const noticeLink = ref('');
-const noticeDismissed = ref(false);
-
-const showSystemNotice = computed(
-  () => !noticeDismissed.value && auth.user?.notifyPrefs?.systemAnnounce !== false,
-);
 
 const promptTabs = [
   { path: '/skills', label: '提示词广场' },
@@ -144,11 +125,6 @@ function isTopSegOn(path: string) {
     return route.path === '/skills' || route.path === '/home/plaza';
   }
   return route.path === path;
-}
-
-function dismissNotice() {
-  noticeDismissed.value = true;
-  noticeText.value = '';
 }
 
 function asIcon(name: unknown): IconName {
@@ -175,12 +151,6 @@ async function loadCmsShell() {
       brandTitle.value = brand.title || brandTitle.value;
       brandHome.value = brand.linkPath || '/home';
       if (brand.coverUrl) brandLogoUrl.value = resolveMediaUrl(brand.coverUrl);
-    }
-    const notice = home.notices?.[0];
-    if (notice && showSystemNotice.value) {
-      noticeTitle.value = notice.title || '公告';
-      noticeText.value = String(notice.description || notice.subtitle || '').trim();
-      noticeLink.value = notice.linkPath || '';
     }
   } catch {
     /* keep defaults */
@@ -222,7 +192,6 @@ const studioRoute = computed(
     route.path === '/assets' ||
     route.path.startsWith('/films') ||
     route.path === '/tools' ||
-    route.path === '/models' ||
     onBooks.value ||
     onSettings.value,
 );
@@ -243,7 +212,6 @@ const canvasFlush = computed(
     route.path === '/assets' ||
     route.path.startsWith('/films') ||
     route.path === '/tools' ||
-    route.path === '/models' ||
     onBooks.value ||
     route.path.startsWith('/settings'),
 );
@@ -289,44 +257,3 @@ function isActive(path: string) {
   return route.path === path || route.path.startsWith(`${path}/`);
 }
 </script>
-
-<style scoped>
-.rail-notice {
-  margin: 0 10px 10px;
-  padding: 10px 12px 12px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--studio-panel) 88%, #3b82f6 12%);
-  color: var(--studio-ink);
-  font-size: 12px;
-  line-height: 1.45;
-  position: relative;
-}
-.rail-notice strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: 12px;
-}
-.rail-notice p {
-  margin: 0;
-  color: var(--studio-muted);
-}
-.rail-notice-close {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  border: 0;
-  background: transparent;
-  color: var(--studio-muted);
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-}
-.rail-notice-link {
-  display: inline-block;
-  margin-top: 6px;
-  color: var(--studio-ink);
-  font-weight: 600;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-</style>

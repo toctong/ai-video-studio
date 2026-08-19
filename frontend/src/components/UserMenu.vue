@@ -1,86 +1,99 @@
 ﻿<template>
   <div class="user-menu" :class="{ 'user-menu--rail': rail }" ref="rootEl">
-    <button type="button" class="user-trigger" aria-label="账号菜单" @click="open = !open">
-      <span class="avatar">
-        <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="" />
-        <span v-else>{{ initial }}</span>
-      </span>
-      <UiIcon v-if="!rail" name="chevron-down" :size="14" class="caret" />
-    </button>
-
-    <div v-if="open" class="user-pop" :class="{ 'user-pop--rail': rail }" role="menu">
-      <div class="pop-head">
-        <span class="pop-avatar">
+    <template v-if="auth.isAuthenticated">
+      <button type="button" class="user-trigger" aria-label="账号菜单" @click="open = !open">
+        <span class="avatar">
           <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="" />
           <span v-else>{{ initial }}</span>
         </span>
-        <div class="pop-meta">
-          <strong>{{ auth.displayName || '用户' }}</strong>
-          <button type="button" class="id-row" title="复制 ID" @click="copyId">
-            <em>ID:{{ userId }}</em>
-            <UiIcon name="copy" :size="12" />
+        <UiIcon v-if="!rail" name="chevron-down" :size="14" class="caret" />
+      </button>
+
+      <div v-if="open" class="user-pop" :class="{ 'user-pop--rail': rail }" role="menu">
+        <div class="pop-head">
+          <span class="pop-avatar">
+            <img v-if="auth.avatarUrl" :src="auth.avatarUrl" alt="" />
+            <span v-else>{{ initial }}</span>
+          </span>
+          <div class="pop-meta">
+            <strong>{{ auth.displayName || '用户' }}</strong>
+            <button type="button" class="id-row" title="复制 ID" @click="copyId">
+              <em>ID:{{ userId }}</em>
+              <UiIcon name="copy" :size="12" />
+            </button>
+          </div>
+          <button type="button" class="team-switch" @click="onSoon('切换团队')">
+            <UiIcon name="refresh" :size="13" />
+            <span>切换团队</span>
           </button>
         </div>
-        <button type="button" class="team-switch" @click="onSoon('切换团队')">
-          <UiIcon name="refresh" :size="13" />
-          <span>切换团队</span>
+
+        <div class="pop-sep" />
+
+        <button type="button" class="pop-item" role="menuitem" @click="goSettings">
+          <UiIcon name="settings" :size="16" />
+          <span>账号设置</span>
         </button>
-      </div>
 
-      <div class="pop-sep" />
-
-      <button type="button" class="pop-item" role="menuitem" @click="goSettings">
-        <UiIcon name="settings" :size="16" />
-        <span>账号设置</span>
-      </button>
-
-      <a
-        v-if="auth.isAdmin"
-        class="pop-item"
-        role="menuitem"
-        href="/admin/"
-        target="_blank"
-        rel="noopener"
-        @click="open = false"
-      >
-        <UiIcon name="shield" :size="16" />
-        <span>管理后台</span>
-      </a>
-
-      <div
-        class="pop-item theme-row"
-        role="button"
-        tabindex="0"
-        :aria-pressed="theme.isDark"
-        @click="theme.toggle()"
-        @keydown.enter="theme.toggle()"
-        @keydown.space.prevent="theme.toggle()"
-      >
-        <div class="theme-left">
-          <UiIcon name="moon" :size="16" />
-          <span>深色模式</span>
-        </div>
-        <button
-          type="button"
-          class="theme-switch"
-          :class="{ dark: theme.isDark }"
-          :aria-pressed="theme.isDark"
-          title="切换主题"
-          @click.stop="theme.toggle()"
+        <a
+          v-if="auth.isAdmin"
+          class="pop-item"
+          role="menuitem"
+          href="/admin/"
+          target="_blank"
+          rel="noopener"
+          @click="open = false"
         >
-          <span class="sw-knob">
-            <UiIcon :name="theme.isDark ? 'moon' : 'sun'" :size="12" />
-          </span>
+          <UiIcon name="shield" :size="16" />
+          <span>管理后台</span>
+        </a>
+
+        <div
+          class="pop-item theme-row"
+          role="button"
+          tabindex="0"
+          :aria-pressed="theme.isDark"
+          @click="theme.toggle()"
+          @keydown.enter="theme.toggle()"
+          @keydown.space.prevent="theme.toggle()"
+        >
+          <div class="theme-left">
+            <UiIcon name="moon" :size="16" />
+            <span>深色模式</span>
+          </div>
+          <button
+            type="button"
+            class="theme-switch"
+            :class="{ dark: theme.isDark }"
+            :aria-pressed="theme.isDark"
+            title="切换主题"
+            @click.stop="theme.toggle()"
+          >
+            <span class="sw-knob">
+              <UiIcon :name="theme.isDark ? 'moon' : 'sun'" :size="12" />
+            </span>
+          </button>
+        </div>
+
+        <div class="pop-sep" />
+
+        <button type="button" class="pop-item danger" role="menuitem" @click="logout">
+          <UiIcon name="log-out" :size="16" />
+          <span>退出登录</span>
         </button>
       </div>
+    </template>
 
-      <div class="pop-sep" />
-
-      <button type="button" class="pop-item danger" role="menuitem" @click="logout">
-        <UiIcon name="log-out" :size="16" />
-        <span>退出登录</span>
-      </button>
-    </div>
+    <button
+      v-else
+      type="button"
+      class="user-trigger user-trigger--login"
+      aria-label="登录"
+      @click="auth.openLoginDialog()"
+    >
+      <span class="avatar avatar--guest">登</span>
+      <span v-if="!rail" class="login-label">登录</span>
+    </button>
   </div>
 </template>
 
@@ -147,12 +160,15 @@ function onSoon(label: string) {
 
 function goSettings() {
   open.value = false;
+  if (!auth.requireLogin()) return;
   router.push({ path: '/settings', query: { section: 'account' } });
 }
 
 function logout() {
   open.value = false;
-  void auth.logout().then(() => router.push('/login'));
+  void auth.logout().then(() => {
+    auth.openLoginDialog();
+  });
 }
 </script>
 
@@ -188,6 +204,27 @@ function logout() {
 }
 .user-trigger:hover {
   background: var(--studio-glass-2);
+}
+
+.user-trigger--login {
+  gap: 6px;
+  padding: 0 10px 0 4px;
+  height: 36px;
+}
+.user-menu--rail .user-trigger--login {
+  width: 44px;
+  padding: 0;
+}
+.avatar--guest {
+  background: var(--studio-panel-3);
+  color: var(--studio-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+.login-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--studio-muted);
 }
 
 .avatar {

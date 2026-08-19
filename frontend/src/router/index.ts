@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import api from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import { useThemeStore } from '@/stores/theme';
 import { DEFAULT_HOME } from '@/constants/app-nav';
@@ -7,11 +6,18 @@ import { DEFAULT_HOME } from '@/constants/app-nav';
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', component: () => import('@/views/LoginView.vue') },
+    // 旧登录页：进首页并弹出登录框，避免与业务路由互相跳转闪屏
+    {
+      path: '/login',
+      redirect: () => {
+        const auth = useAuthStore();
+        queueMicrotask(() => auth.openLoginDialog());
+        return DEFAULT_HOME;
+      },
+    },
     {
       path: '/',
       component: () => import('@/layouts/PlatformLayout.vue'),
-      meta: { auth: true },
       children: [
         // 新 IA
         { path: 'home', component: () => import('@/views/HomeDashboardView.vue') },
@@ -23,7 +29,7 @@ const router = createRouter({
         },
         { path: 'films/:id', component: () => import('@/views/studio/FilmProjectLayout.vue') },
         { path: 'tools', component: () => import('@/views/ToolboxView.vue') },
-        { path: 'models', component: () => import('@/views/ModelManagementView.vue') },
+        { path: 'models', redirect: '/home' },
         {
           path: 'generate',
           component: () => import('@/views/studio/StudioGenerateView.vue'),
@@ -142,38 +148,9 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
-  if (to.meta.auth) {
-    await auth.hydrate();
-    if (!auth.isAuthenticated) return '/login';
-    useThemeStore().syncFromUser(auth.user);
-
-    // FileOSS 未配置时强制进入设置（避免进业务页被 503 打回，看起来像登不上）
-    const onSettings = to.path === '/settings' || to.path.startsWith('/settings/');
-    if (!onSettings) {
-      try {
-        const { data } = await api.get('/settings');
-        if (data?.fileOss && data.fileOss.configured === false) {
-          return { path: '/settings', query: { section: 'storage' } };
-        }
-      } catch {
-        /* 网络异常不阻断；业务接口若 503 再由拦截器引导 */
-      }
-    }
-  } else if (to.path === '/login') {
-    if (!auth.hydrated) await auth.hydrate();
-    // 已登录访问登录页：按 FileOSS 状态分流，避免来回跳
-    if (auth.isAuthenticated) {
-      try {
-        const { data } = await api.get('/settings');
-        if (data?.fileOss && data.fileOss.configured === false) {
-          return { path: '/settings', query: { section: 'storage' } };
-        }
-      } catch {
-        /* ignore */
-      }
-      return DEFAULT_HOME;
-    }
-  }
+  // 不强制跳登录页；静默恢复会话即可，需要操作时弹登录框
+  if (!auth.hydrated) await auth.hydrate();
+  if (auth.isAuthenticated) useThemeStore().syncFromUser(auth.user);
   return true;
 });
 

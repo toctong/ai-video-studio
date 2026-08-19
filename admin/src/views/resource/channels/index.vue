@@ -8,10 +8,18 @@
       <a-space>
         <a-button @click="openCreate">新增渠道</a-button>
         <a-button type="primary" :loading="loading" @click="load">刷新</a-button>
+        <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
       </a-space>
     </div>
 
-    <a-table row-key="slug" :loading="loading" :data="rows" :pagination="false">
+    <a-table
+      v-model:selectedKeys="selectedKeys"
+      row-key="slug"
+      :loading="loading"
+      :data="rows"
+      :pagination="false"
+      :row-selection="rowSelection"
+    >
       <template #columns>
         <a-table-column title="名称" data-index="title" />
         <a-table-column title="Slug" data-index="slug" :width="140" />
@@ -72,6 +80,18 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const { selectedKeys, hasSelection, batchLoading, runBatchAction } = useTableBatch();
+
+const rowSelection = {
+  type: 'checkbox' as const,
+  showCheckedAll: true,
+  onlyCurrent: false,
+  checkboxProps: (record: { slug: string }) => ({
+    disabled: record.slug === 'volcengine',
+  }),
+};
 
 const loading = ref(false);
 const saving = ref(false);
@@ -173,6 +193,30 @@ async function remove(slug: string) {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '删除失败');
   }
+}
+
+async function batchRemove() {
+  const slugs = selectedKeys.value.map(String).filter((s) => s !== 'volcengine');
+  if (!slugs.length) {
+    Message.warning('请选择可删除的渠道（内置 volcengine 不可删）');
+    return;
+  }
+  await runBatchAction({
+    title: '批量删除渠道',
+    content: `确认删除选中的 ${slugs.length} 个渠道及其模型快照？`,
+    action: async () => {
+      const results = await Promise.allSettled(
+        slugs.map((slug) => api.delete(`/admin/settings/channels/${encodeURIComponent(slug)}`)),
+      );
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const fail = results.length - ok;
+      const lastOk = results.filter((r) => r.status === 'fulfilled').pop();
+      if (lastOk?.status === 'fulfilled') settings.value = (lastOk.value as any).data || settings.value;
+      if (fail === 0) Message.success(`已删除 ${ok} 个渠道`);
+      else Message.warning(`成功 ${ok} 个，失败 ${fail} 个`);
+    },
+    onDone: load,
+  });
 }
 
 onMounted(load);

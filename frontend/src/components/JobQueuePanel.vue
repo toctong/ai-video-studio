@@ -188,6 +188,11 @@ function formatTime(raw: string) {
 }
 
 async function refresh(opts?: { quiet?: boolean }) {
+  if (!auth.isAuthenticated) {
+    health.value = null;
+    rows.value = [];
+    return;
+  }
   if (!opts?.quiet) loading.value = true;
   try {
     const [h, list] = await Promise.all([fetchJobQueueHealth(), fetchJobs()]);
@@ -249,6 +254,7 @@ async function onClear() {
 
 function startPoll() {
   stopPoll();
+  if (!auth.isAuthenticated) return;
   pollTimer = setInterval(() => {
     void refresh({ quiet: true });
   }, open.value ? 3000 : 5000);
@@ -275,9 +281,12 @@ function onDocClick(e: MouseEvent) {
 onMounted(() => {
   document.addEventListener('mousedown', onDocClick);
   stopJobsListener = onJobsChanged(() => {
+    if (!auth.isAuthenticated) return;
     void refresh({ quiet: true });
   });
-  void refresh({ quiet: true }).finally(() => startPoll());
+  if (auth.isAuthenticated) {
+    void refresh({ quiet: true }).finally(() => startPoll());
+  }
 });
 
 onUnmounted(() => {

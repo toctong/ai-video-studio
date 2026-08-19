@@ -151,7 +151,7 @@ const cards = computed(() => {
 });
 
 const quickLinks = [
-  { path: '/cms', title: '内容运营', desc: '轮播 / 入口 / 公告', icon: IconApps, bg: 'linear-gradient(135deg,#165dff,#4080ff)' },
+  { path: '/cms', title: '内容总览', desc: 'CMS 分模块与导入导出', icon: IconApps, bg: 'linear-gradient(135deg,#165dff,#4080ff)' },
   { path: '/storage', title: '对象存储', desc: 'MinIO 配置与连通', icon: IconStorage, bg: 'linear-gradient(135deg,#0fc6c2,#37d4cf)' },
   { path: '/channels', title: '渠道管理', desc: 'API Key / 线路', icon: IconThunderbolt, bg: 'linear-gradient(135deg,#f7ba1e,#fadc19)' },
   { path: '/users', title: '用户管理', desc: '角色与账号', icon: IconUser, bg: 'linear-gradient(135deg,#722ed1,#b37feb)' },

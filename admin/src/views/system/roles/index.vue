@@ -15,9 +15,19 @@
           <template #prefix><icon-search /></template>
         </a-input>
         <a-button type="primary" @click="load">搜索</a-button>
+        <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
       </div>
 
-      <a-table row-key="id" :loading="loading" :data="list" :pagination="false" :bordered="false" stripe>
+      <a-table
+        v-model:selectedKeys="selectedKeys"
+        row-key="id"
+        :loading="loading"
+        :data="list"
+        :pagination="false"
+        :bordered="false"
+        :row-selection="rowSelection"
+        stripe
+      >
         <template #columns>
           <a-table-column title="名称" data-index="name" />
           <a-table-column title="编码" data-index="code" :width="120" />
@@ -94,6 +104,18 @@ import { onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
 import PageHeader from '@/components/PageHeader.vue';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const { selectedKeys, hasSelection, batchLoading, runBatchAction } = useTableBatch();
+
+const rowSelection = {
+  type: 'checkbox' as const,
+  showCheckedAll: true,
+  onlyCurrent: false,
+  checkboxProps: (record: { code?: string }) => ({
+    disabled: record.code === 'admin',
+  }),
+};
 
 const loading = ref(false);
 const saving = ref(false);
@@ -206,6 +228,29 @@ async function remove(id: string) {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '删除失败');
   }
+}
+
+async function batchRemove() {
+  const ids = selectedKeys.value.map(String).filter((id) => {
+    const row = list.value.find((r) => String(r.id) === id);
+    return row && row.code !== 'admin';
+  });
+  if (!ids.length) {
+    Message.warning('请选择可删除的角色（admin 不可删）');
+    return;
+  }
+  await runBatchAction({
+    title: '批量删除角色',
+    content: `确认删除选中的 ${ids.length} 个角色？`,
+    action: async () => {
+      const results = await Promise.allSettled(ids.map((id) => api.delete(`/admin/roles/${id}`)));
+      const ok = results.filter((r) => r.status === 'fulfilled').length;
+      const fail = results.length - ok;
+      if (fail === 0) Message.success(`已删除 ${ok} 个角色`);
+      else Message.warning(`成功 ${ok} 个，失败 ${fail} 个`);
+    },
+    onDone: load,
+  });
 }
 
 onMounted(async () => {

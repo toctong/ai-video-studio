@@ -375,9 +375,12 @@ export class AdminController {
       limits: { fileSize: 200 * 1024 * 1024 },
     }),
   )
-  uploadCms(@UploadedFile() file?: Express.Multer.File) {
+  uploadCms(
+    @UploadedFile() file?: Express.Multer.File,
+    @Body('fileName') fileName?: string,
+  ) {
     if (!file) throw new BadRequestException('请选择文件');
-    return this.admin.uploadCmsMedia(file);
+    return this.admin.uploadCmsMedia(file, fileName);
   }
 
   @Post('cms')

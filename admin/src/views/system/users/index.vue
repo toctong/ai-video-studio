@@ -16,14 +16,17 @@
         </a-input>
         <a-button type="primary" @click="search">搜索</a-button>
         <a-button @click="resetSearch">重置</a-button>
+        <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
       </div>
 
       <a-table
+        v-model:selectedKeys="selectedKeys"
         row-key="id"
         :loading="loading"
         :data="list"
         :pagination="pagination"
         :bordered="false"
+        :row-selection="rowSelection"
         stripe
         @page-change="onPage"
         @page-size-change="onPageSize"
@@ -103,6 +106,9 @@ import dayjs from 'dayjs';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
 import PageHeader from '@/components/PageHeader.vue';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const { selectedKeys, rowSelection, hasSelection, batchLoading, batchDelete } = useTableBatch();
 
 const loading = ref(false);
 const saving = ref(false);
@@ -238,6 +244,10 @@ async function remove(id: number) {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '删除失败');
   }
+}
+
+function batchRemove() {
+  return batchDelete((id) => api.delete(`/admin/users/${id}`), '个用户', load);
 }
 
 onMounted(async () => {

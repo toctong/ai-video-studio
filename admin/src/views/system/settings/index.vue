@@ -5,7 +5,7 @@
       <a-button type="primary" :loading="loading" @click="load">刷新</a-button>
     </div>
     <a-alert type="info" style="margin-bottom: 16px">
-      MinIO、渠道库、模型库请使用左侧「对象存储 / 渠道管理 / 模型管理」。此处保留任务并发与总览。
+      MinIO、渠道库、模型库请使用左侧「对象存储 / 渠道管理 / 模型管理」。任务并发仅在此处配置。
     </a-alert>
     <a-spin :loading="loading" style="width: 100%">
       <a-descriptions v-if="data" :column="1" bordered size="large">

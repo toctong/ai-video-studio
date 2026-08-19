@@ -126,3 +126,67 @@ a:hover {
 .app-menu-dark {
   --color-menu-dark-bg: var(--admin-sider);
 }
+
+/*
+ * 弹框全局：整页不滚动，弹框本身限高，仅 body 内部滚动。
+ * 避免 Arco wrapper overflow:auto 把「内容过高」表现成全局滚动条。
+ */
+html.arco-overflow-hidden,
+body.arco-overflow-hidden {
+  overflow: hidden !important;
+  width: 100%;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+.arco-modal-wrapper {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+.arco-modal-wrapper.arco-modal-wrapper-align-center {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 16px !important;
+  box-sizing: border-box;
+}
+
+.arco-modal {
+  top: 0 !important;
+  max-width: calc(100vw - 32px);
+  max-height: min(calc(100vh - 40px), calc(100dvh - 40px)) !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+.arco-modal > .arco-modal-header,
+.arco-modal > .arco-modal-footer {
+  flex: 0 0 auto;
+}
+
+.arco-modal > .arco-modal-body {
+  flex: 1 1 auto;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.arco-modal-body .arco-image,
+.arco-modal-body .arco-image-img,
+.arco-modal-body video {
+  max-width: 100%;
+  max-height: 160px;
+  object-fit: contain;
+}
+
+.arco-drawer-body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

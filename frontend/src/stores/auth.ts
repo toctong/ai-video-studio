@@ -29,6 +29,10 @@ export const useAuthStore = defineStore('auth', () => {
   const user = ref<AuthUser | null>(null);
   const avatarRevision = ref(0);
   const hydrated = ref(false);
+  /** 全局登录弹框：业务操作 / 401 时弹出，不跳路由 */
+  const loginDialogOpen = ref(false);
+  /** 避免 401 风暴连续弹多个登录框 */
+  let loginDialogPending = false;
   let hydratePromise: Promise<AuthUser | null> | null = null;
 
   const displayName = computed(
@@ -65,6 +69,24 @@ export const useAuthStore = defineStore('auth', () => {
     setUser(null);
     avatarRevision.value = 0;
     hydrated.value = true;
+  }
+
+  function openLoginDialog() {
+    if (loginDialogOpen.value || loginDialogPending) return;
+    loginDialogPending = true;
+    loginDialogOpen.value = true;
+  }
+
+  function closeLoginDialog() {
+    loginDialogOpen.value = false;
+    loginDialogPending = false;
+  }
+
+  /** 需要登录才能继续时调用；已登录则直接返回 true */
+  function requireLogin() {
+    if (user.value) return true;
+    openLoginDialog();
+    return false;
   }
 
   async function login(username: string, password: string, totpCode = '') {
@@ -173,6 +195,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     avatarRevision,
     hydrated,
+    loginDialogOpen,
     displayName,
     avatarUrl,
     isAuthenticated,
@@ -182,6 +205,9 @@ export const useAuthStore = defineStore('auth', () => {
     hydrate,
     ensureUser,
     clearSession,
+    openLoginDialog,
+    closeLoginDialog,
+    requireLogin,
     applyUserProfile,
     updateNickname,
     updateTheme,

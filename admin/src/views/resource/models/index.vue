@@ -24,9 +24,6 @@
             <a-option v-for="m in videoOptions" :key="m.value" :value="m.value">{{ m.label }}</a-option>
           </a-select>
         </a-form-item>
-        <a-form-item label="任务并发">
-          <a-input-number v-model="defaults.jobConcurrency" :min="1" :max="32" />
-        </a-form-item>
       </a-form>
     </div>
 
@@ -39,10 +36,18 @@
         <a-space>
           <a-button @click="openCreate">新增模型</a-button>
           <a-button type="primary" :loading="loading" @click="load">刷新</a-button>
+          <a-button status="danger" :disabled="!hasSelection" :loading="batchLoading" @click="batchRemove">批量删除</a-button>
         </a-space>
       </div>
 
-      <a-table row-key="key" :loading="loading" :data="modelRows" :pagination="{ pageSize: 20 }">
+      <a-table
+        v-model:selectedKeys="selectedKeys"
+        row-key="key"
+        :loading="loading"
+        :data="modelRows"
+        :pagination="{ pageSize: 20 }"
+        :row-selection="rowSelection"
+      >
         <template #columns>
           <a-table-column title="标题" data-index="title" />
           <a-table-column title="Model ID" data-index="modelId" ellipsis tooltip />
@@ -95,6 +100,9 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
+import { useTableBatch } from '@/composables/useTableBatch';
+
+const { selectedKeys, rowSelection, hasSelection, batchLoading, batchDelete } = useTableBatch();
 
 const loading = ref(false);
 const savingDefaults = ref(false);
@@ -106,7 +114,6 @@ const defaults = reactive({
   defaultChatModel: '',
   defaultImageModel: '',
   defaultVideoModel: '',
-  jobConcurrency: 8,
 });
 
 const modelForm = reactive({
@@ -158,7 +165,6 @@ async function load() {
     defaults.defaultChatModel = data?.defaultChatModel || '';
     defaults.defaultImageModel = data?.defaultImageModel || '';
     defaults.defaultVideoModel = data?.defaultVideoModel || '';
-    defaults.jobConcurrency = Number(data?.jobConcurrency || 8);
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '加载失败');
   } finally {
@@ -173,7 +179,6 @@ async function saveDefaults() {
       defaultChatModel: defaults.defaultChatModel,
       defaultImageModel: defaults.defaultImageModel,
       defaultVideoModel: defaults.defaultVideoModel,
-      jobConcurrency: defaults.jobConcurrency,
     });
     settings.value = data || {};
     Message.success('默认模型已保存');
@@ -228,6 +233,20 @@ async function remove(row: any) {
   } catch (e: any) {
     Message.error(e?.response?.data?.message || e.message || '删除失败');
   }
+}
+
+function batchRemove() {
+  return batchDelete(
+    (key) => {
+      const row = modelRows.value.find((r) => r.key === key);
+      if (!row) return Promise.reject(new Error('记录不存在'));
+      return api.delete(`/admin/settings/models/${encodeURIComponent(row.modelId)}`, {
+        params: { channelSlug: row.channelSlug },
+      });
+    },
+    '个模型',
+    load,
+  );
 }
 
 onMounted(load);

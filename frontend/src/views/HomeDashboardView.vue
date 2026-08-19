@@ -14,7 +14,18 @@
             :tabindex="slideRole(i) === 'hidden' ? -1 : 0"
             @click="onHeroSlideClick(i, b)"
           >
+            <video
+              v-if="b.video && slideRole(i) === 'main'"
+              class="hero-slide__img hero-slide__video"
+              :src="b.video"
+              :poster="b.cover || undefined"
+              autoplay
+              muted
+              loop
+              playsinline
+            />
             <LazyCoverImage
+              v-else
               class="hero-slide__img"
               :src="b.cover"
               :alt="b.title"
@@ -164,6 +175,7 @@ type Banner = {
   desc: string;
   path: string;
   cover: string;
+  video: string;
 };
 
 type EntryCard = {
@@ -208,6 +220,7 @@ function mapBanners(items: CmsItem[]): Banner[] {
     desc: String(b.description || ''),
     path: b.linkPath || '/home',
     cover: b.coverUrl || '',
+    video: b.videoUrl || '',
   }));
 }
 
@@ -498,6 +511,9 @@ onUnmounted(() => {
   object-position: center;
   display: block;
   pointer-events: none;
+}
+.hero-slide__video {
+  background: #0b0f19;
 }
 .hero-slide__img :deep(.el-image__inner) {
   width: 100%;
