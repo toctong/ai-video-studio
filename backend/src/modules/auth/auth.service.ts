@@ -25,6 +25,8 @@ export type PublicUser = {
   avatar: string;
   theme: 'light' | 'dark';
   role: string;
+  roleId: string;
+  deptId: string;
   totpEnabled: boolean;
   notifyPrefs: NotifyPrefs;
   createdAt: Date;
@@ -93,6 +95,8 @@ export class AuthService implements OnModuleInit {
       avatar: user.avatar || '',
       theme,
       role: user.role,
+      roleId: user.roleId || '',
+      deptId: user.deptId || '',
       totpEnabled: Boolean(user.totpEnabled),
       notifyPrefs: normalizeNotifyPrefs(user.notifyPrefs),
       createdAt: user.createdAt,

@@ -1,45 +1,45 @@
 <template>
-  <div class="page-card">
-    <div class="page-toolbar">
-      <div>
-        <h3 style="margin: 0">对象存储（MinIO）</h3>
-        <p class="hint">配置后前台上传/素材直链走此存储。留空 AccessKey 表示不修改已保存密钥。</p>
-      </div>
-      <a-space>
-        <a-button :loading="testing" @click="test">测试连通</a-button>
-        <a-button type="primary" :loading="saving" @click="save">保存</a-button>
-      </a-space>
-    </div>
+  <div>
+    <PageHeader title="对象存储（MinIO）" description="配置后前台上传/素材直链走此存储。留空 AccessKey 表示不修改已保存密钥。">
+      <template #extra>
+        <a-space>
+          <a-button :loading="testing" @click="test">测试连通</a-button>
+          <a-button type="primary" :loading="saving" @click="save">保存</a-button>
+        </a-space>
+      </template>
+    </PageHeader>
 
-    <a-spin :loading="loading" style="width: 100%">
-      <a-form :model="form" layout="vertical" style="max-width: 720px">
-        <a-form-item label="公网读地址 baseUrl">
-          <a-input v-model="form.baseUrl" placeholder="https://minio.example.com 或 http://host:9000" />
-        </a-form-item>
-        <a-form-item label="S3 API Endpoint（可填内网）">
-          <a-input v-model="form.apiEndpoint" placeholder="http://127.0.0.1:9000" />
-        </a-form-item>
-        <a-row :gutter="16">
-          <a-col :span="12">
-            <a-form-item label="Bucket">
-              <a-input v-model="form.bucket" placeholder="aivideo" />
-            </a-form-item>
-          </a-col>
-          <a-col :span="12">
-            <a-form-item label="Key Prefix">
-              <a-input v-model="form.keyPrefix" placeholder="ai/video-studio" />
-            </a-form-item>
-          </a-col>
-        </a-row>
-        <a-form-item :label="`Access Key ID${hasId ? '（已配置，留空不改）' : ''}`">
-          <a-input-password v-model="form.accessKeyId" placeholder="Access Key" allow-clear />
-        </a-form-item>
-        <a-form-item :label="`Access Key Secret${hasSecret ? '（已配置，留空不改）' : ''}`">
-          <a-input-password v-model="form.accessKeySecret" placeholder="Secret Key" allow-clear />
-        </a-form-item>
-        <a-alert v-if="statusText" :type="statusOk ? 'success' : 'warning'" :content="statusText" />
-      </a-form>
-    </a-spin>
+    <div class="page-card">
+      <a-spin :loading="loading" style="width: 100%">
+        <a-form :model="form" layout="vertical" style="max-width: 720px">
+          <a-form-item label="公网读地址 baseUrl">
+            <a-input v-model="form.baseUrl" placeholder="https://minio.example.com 或 http://host:9000" />
+          </a-form-item>
+          <a-form-item label="S3 API Endpoint（可填内网）">
+            <a-input v-model="form.apiEndpoint" placeholder="http://127.0.0.1:9000" />
+          </a-form-item>
+          <a-row :gutter="16">
+            <a-col :span="12">
+              <a-form-item label="Bucket">
+                <a-input v-model="form.bucket" placeholder="aivideo" />
+              </a-form-item>
+            </a-col>
+            <a-col :span="12">
+              <a-form-item label="Key Prefix">
+                <a-input v-model="form.keyPrefix" placeholder="ai/video-studio" />
+              </a-form-item>
+            </a-col>
+          </a-row>
+          <a-form-item :label="`Access Key ID${hasId ? '（已配置，留空不改）' : ''}`">
+            <a-input-password v-model="form.accessKeyId" placeholder="Access Key" allow-clear />
+          </a-form-item>
+          <a-form-item :label="`Access Key Secret${hasSecret ? '（已配置，留空不改）' : ''}`">
+            <a-input-password v-model="form.accessKeySecret" placeholder="Secret Key" allow-clear />
+          </a-form-item>
+          <a-alert v-if="statusText" :type="statusOk ? 'success' : 'warning'" :content="statusText" />
+        </a-form>
+      </a-spin>
+    </div>
   </div>
 </template>
 
@@ -47,6 +47,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
+import PageHeader from '@/components/PageHeader.vue';
 
 const loading = ref(false);
 const saving = ref(false);
@@ -133,11 +134,3 @@ async function test() {
 
 onMounted(load);
 </script>
-
-<style scoped>
-.hint {
-  margin: 6px 0 0;
-  color: var(--color-text-3);
-  font-size: 13px;
-}
-</style>

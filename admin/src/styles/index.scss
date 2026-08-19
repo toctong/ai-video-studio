@@ -2,12 +2,23 @@
   --admin-brand: #165dff;
   --admin-bg: #f2f3f5;
   --admin-sider: #001529;
-  --admin-sider-text: rgba(255, 255, 255, 0.75);
-  --admin-sider-active: #165dff;
+  --margin: 14px;
+  --padding: 16px;
+}
+
+html[data-theme='dark'] {
+  --admin-bg: #17171a;
+  --admin-sider: #141414;
 }
 
 * {
   box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 14px;
 }
 
 html,
@@ -16,16 +27,48 @@ body,
   width: 100%;
   height: 100%;
   margin: 0;
+  padding: 0;
+}
+
+body {
+  overflow: hidden;
   font-family: 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  color: var(--color-text-2);
   background: var(--admin-bg);
-  color: var(--color-text-1);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* 登录页独立全屏，避免 router-view 高度链断裂 */
+#app > .login {
+  height: 100vh;
+  min-height: 100dvh;
+}
+
+ul {
+  list-style: none;
+}
+
+a,
+a:focus,
+a:hover {
+  color: inherit;
+  text-decoration: none;
 }
 
 .page-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 16px 20px;
-  min-height: 100%;
+  background: var(--color-bg-2);
+  border-radius: 12px;
+  padding: 16px 20px 20px;
+  border: 1px solid var(--color-border-2);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .page-toolbar {
@@ -35,31 +78,51 @@ body,
   gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+  }
 }
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 16px;
-}
-
-.stat-card {
-  background: #fff;
+.search-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
+  margin-bottom: 14px;
   border-radius: 10px;
-  padding: 18px 20px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  background: var(--color-fill-1);
   border: 1px solid var(--color-border-2);
 }
 
-.stat-card__label {
+.hint {
+  margin: 6px 0 0;
   color: var(--color-text-3);
   font-size: 13px;
 }
 
-.stat-card__value {
-  margin-top: 8px;
-  font-size: 28px;
-  font-weight: 600;
-  color: var(--color-text-1);
-  letter-spacing: -0.02em;
+/* Arco 全局微调 */
+.arco-table-th {
+  font-weight: 600 !important;
+}
+
+.arco-menu .arco-menu-item {
+  display: inline-flex;
+}
+
+.arco-layout-header {
+  height: auto !important;
+  line-height: normal !important;
+}
+
+.g-hover-btn:hover {
+  background: var(--color-fill-2) !important;
+}
+
+/* 深色侧栏容器：与 gi-demo 一致走 Arco menu token */
+.app-menu-dark {
+  --color-menu-dark-bg: var(--admin-sider);
 }

@@ -43,6 +43,9 @@ import { AppLogsModule } from './modules/app-logs/app-logs.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { CmsModule } from './modules/cms/cms.module';
 import { CmsItem } from './entities/cms-item.entity';
+import { Dept } from './entities/dept.entity';
+import { Role } from './entities/role.entity';
+import { SysMenu } from './entities/sys-menu.entity';
 import { resolveMysqlConfig, typeormSynchronizeEnabled } from './config/env';
 
 @Module({
@@ -80,6 +83,9 @@ import { resolveMysqlConfig, typeormSynchronizeEnabled } from './config/env';
         GenerateSession,
         GenerateMessage,
         CmsItem,
+        Dept,
+        Role,
+        SysMenu,
       ],
       // 未设置时：非 production 默认 true；production 默认 false
       synchronize: typeormSynchronizeEnabled(),

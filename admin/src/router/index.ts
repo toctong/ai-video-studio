@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { findMenuTitle } from '@/config/menu';
 
 const router = createRouter({
   history: createWebHistory('/admin/'),
@@ -7,7 +8,7 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: () => import('@/views/LoginView.vue'),
+      component: () => import('@/views/login/index.vue'),
       meta: { public: true },
     },
     {
@@ -19,74 +20,93 @@ const router = createRouter({
         {
           path: 'dashboard',
           name: 'dashboard',
-          component: () => import('@/views/DashboardView.vue'),
-          meta: { title: '工作台', icon: 'icon-dashboard' },
+          component: () => import('@/views/dashboard/index.vue'),
+          meta: { title: '工作台', affix: true },
+        },
+        { path: 'users', redirect: '/system/users' },
+        {
+          path: 'system/users',
+          name: 'system-users',
+          component: () => import('@/views/system/users/index.vue'),
+          meta: { title: '用户管理' },
         },
         {
-          path: 'users',
-          name: 'users',
-          component: () => import('@/views/UsersView.vue'),
-          meta: { title: '用户管理', icon: 'icon-user' },
+          path: 'system/roles',
+          name: 'system-roles',
+          component: () => import('@/views/system/roles/index.vue'),
+          meta: { title: '角色管理' },
+        },
+        {
+          path: 'system/depts',
+          name: 'system-depts',
+          component: () => import('@/views/system/depts/index.vue'),
+          meta: { title: '部门管理' },
+        },
+        {
+          path: 'system/menus',
+          name: 'system-menus',
+          component: () => import('@/views/system/menus/index.vue'),
+          meta: { title: '菜单管理' },
         },
         {
           path: 'cms',
           name: 'cms',
-          component: () => import('@/views/CmsView.vue'),
-          meta: { title: '内容运营', icon: 'icon-apps' },
+          component: () => import('@/views/ops/cms/index.vue'),
+          meta: { title: '内容运营' },
         },
         {
           path: 'storage',
           name: 'storage',
-          component: () => import('@/views/StorageView.vue'),
-          meta: { title: '对象存储', icon: 'icon-storage' },
+          component: () => import('@/views/resource/storage/index.vue'),
+          meta: { title: '对象存储' },
         },
         {
           path: 'channels',
           name: 'channels',
-          component: () => import('@/views/ChannelsView.vue'),
-          meta: { title: '渠道管理', icon: 'icon-thunderbolt' },
+          component: () => import('@/views/resource/channels/index.vue'),
+          meta: { title: '渠道管理' },
         },
         {
           path: 'models',
           name: 'models',
-          component: () => import('@/views/ModelsView.vue'),
-          meta: { title: '模型管理', icon: 'icon-robot' },
+          component: () => import('@/views/resource/models/index.vue'),
+          meta: { title: '模型管理' },
         },
         {
           path: 'projects',
           name: 'projects',
-          component: () => import('@/views/ProjectsView.vue'),
-          meta: { title: '书库项目', icon: 'icon-book' },
+          component: () => import('@/views/biz/projects/index.vue'),
+          meta: { title: '书库项目' },
         },
         {
           path: 'productions',
           name: 'productions',
-          component: () => import('@/views/ProductionsView.vue'),
-          meta: { title: '制作项目', icon: 'icon-video-camera' },
+          component: () => import('@/views/biz/productions/index.vue'),
+          meta: { title: '制作项目' },
         },
         {
           path: 'assets',
           name: 'assets',
-          component: () => import('@/views/AssetsView.vue'),
-          meta: { title: '资产管理', icon: 'icon-folder' },
+          component: () => import('@/views/biz/assets/index.vue'),
+          meta: { title: '资产管理' },
         },
         {
           path: 'jobs',
           name: 'jobs',
-          component: () => import('@/views/JobsView.vue'),
-          meta: { title: '任务中心', icon: 'icon-calendar' },
+          component: () => import('@/views/biz/jobs/index.vue'),
+          meta: { title: '任务中心' },
         },
         {
           path: 'discover',
           name: 'discover',
-          component: () => import('@/views/DiscoverView.vue'),
-          meta: { title: '发现广场', icon: 'icon-apps' },
+          component: () => import('@/views/ops/discover/index.vue'),
+          meta: { title: '发现广场' },
         },
         {
           path: 'settings',
           name: 'settings',
-          component: () => import('@/views/SettingsView.vue'),
-          meta: { title: '系统设置', icon: 'icon-settings' },
+          component: () => import('@/views/system/settings/index.vue'),
+          meta: { title: '系统设置' },
         },
       ],
     },
@@ -102,7 +122,9 @@ router.beforeEach(async (to) => {
   }
   await auth.hydrate();
   if (!auth.isAuthenticated) return '/login';
-  if (!auth.isAdmin) {
+  // admin / ops 均可进后台；无菜单则 hydrate 已踢出
+  const role = String(auth.user?.role || '');
+  if (role !== 'admin' && role !== 'ops') {
     auth.logout();
     return '/login';
   }
@@ -111,17 +133,4 @@ router.beforeEach(async (to) => {
 
 export default router;
 
-export const menuRoutes = [
-  { path: '/dashboard', title: '工作台', icon: 'icon-dashboard' },
-  { path: '/users', title: '用户管理', icon: 'icon-user' },
-  { path: '/cms', title: '内容运营', icon: 'icon-apps' },
-  { path: '/storage', title: '对象存储', icon: 'icon-storage' },
-  { path: '/channels', title: '渠道管理', icon: 'icon-thunderbolt' },
-  { path: '/models', title: '模型管理', icon: 'icon-robot' },
-  { path: '/projects', title: '书库项目', icon: 'icon-book' },
-  { path: '/productions', title: '制作项目', icon: 'icon-video-camera' },
-  { path: '/assets', title: '资产管理', icon: 'icon-folder' },
-  { path: '/jobs', title: '任务中心', icon: 'icon-calendar' },
-  { path: '/discover', title: '发现广场', icon: 'icon-apps' },
-  { path: '/settings', title: '系统设置', icon: 'icon-settings' },
-];
+export { findMenuTitle };

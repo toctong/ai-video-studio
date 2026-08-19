@@ -1,28 +1,35 @@
 <template>
-  <div class="page-card">
-    <div class="page-toolbar">
-      <div>
-        <h3 style="margin: 0">内容运营 CMS</h3>
-        <p class="hint">管理轮播、入口、精选、发现、工具箱、技能精选、导航、品牌 Logo、公告。</p>
-      </div>
-      <a-space>
+  <div>
+    <PageHeader title="内容运营 CMS" description="管理轮播、入口、精选、发现、工具箱、技能精选、导航、品牌 Logo、公告">
+      <template #extra>
+        <a-space wrap>
+          <a-button @click="exportCms">导出 JSON</a-button>
+          <a-upload :custom-request="importCms as any" :show-file-list="false" accept="application/json,.json">
+            <template #upload-button>
+              <a-button :loading="importing">导入 JSON</a-button>
+            </template>
+          </a-upload>
+          <a-button type="primary" @click="openCreate">
+            <template #icon><icon-plus /></template>
+            新建
+          </a-button>
+        </a-space>
+      </template>
+    </PageHeader>
+
+    <div class="page-card">
+      <div class="search-bar">
         <a-select v-model="type" style="width: 140px" @change="load">
           <a-option value="">全部类型</a-option>
           <a-option v-for="t in types" :key="t.value" :value="t.value">{{ t.label }}</a-option>
         </a-select>
-        <a-input v-model="q" placeholder="搜索标题/slug" allow-clear style="width: 200px" @press-enter="load" />
-        <a-button @click="exportCms">导出 JSON</a-button>
-        <a-upload :custom-request="importCms" :show-file-list="false" accept="application/json,.json">
-          <template #upload-button>
-            <a-button :loading="importing">导入 JSON</a-button>
-          </template>
-        </a-upload>
-        <a-button @click="openCreate">新建</a-button>
+        <a-input v-model="q" placeholder="搜索标题/slug" allow-clear style="width: 220px" @press-enter="load">
+          <template #prefix><icon-search /></template>
+        </a-input>
         <a-button type="primary" :loading="loading" @click="load">刷新</a-button>
-      </a-space>
-    </div>
+      </div>
 
-    <a-table row-key="id" :loading="loading" :data="list" :pagination="{ pageSize: 20 }">
+    <a-table row-key="id" :loading="loading" :data="list" :pagination="{ pageSize: 20 }" :bordered="false" stripe>
       <template #columns>
         <a-table-column title="类型" data-index="type" :width="100">
           <template #cell="{ record }">
@@ -60,6 +67,7 @@
         </a-table-column>
       </template>
     </a-table>
+    </div>
 
     <a-modal
       v-model:visible="visible"
@@ -101,7 +109,7 @@
           <a-space direction="vertical" fill style="width: 100%">
             <a-input v-model="form.coverUrl" placeholder="https://... 或点击上传" />
             <a-upload
-              :custom-request="(opt) => uploadMedia(opt, 'cover')"
+              :custom-request="((opt: any) => uploadMedia(opt, 'cover')) as any"
               :show-file-list="false"
               accept="image/*"
             >
@@ -116,7 +124,7 @@
           <a-space direction="vertical" fill style="width: 100%">
             <a-input v-model="form.videoUrl" placeholder="https://... 或点击上传" />
             <a-upload
-              :custom-request="(opt) => uploadMedia(opt, 'video')"
+              :custom-request="((opt: any) => uploadMedia(opt, 'video')) as any"
               :show-file-list="false"
               accept="video/*"
             >
@@ -144,6 +152,7 @@
 import { onMounted, reactive, ref } from 'vue';
 import { Message } from '@arco-design/web-vue';
 import api from '@/api';
+import PageHeader from '@/components/PageHeader.vue';
 
 const types = [
   { value: 'banner', label: '轮播' },

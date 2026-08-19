@@ -20,6 +20,14 @@ export class User {
   @Column({ default: 'admin' })
   role!: string;
 
+  /** 关联 sys_roles.id；空则仅用 role 字符串兼容旧数据 */
+  @Column({ type: 'varchar', length: 64, default: '' })
+  roleId!: string;
+
+  /** 关联 sys_depts.id */
+  @Column({ type: 'varchar', length: 64, default: '' })
+  deptId!: string;
+
   /** 展示昵称；空则前端回退到 username */
   @Column({ default: '' })
   nickname!: string;

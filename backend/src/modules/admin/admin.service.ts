@@ -18,6 +18,7 @@ import { SettingsService } from '../settings/settings.service';
 import { JobsService } from '../jobs/jobs.service';
 import { FileOssService } from '../storage/file-oss.service';
 import { CmsService } from '../cms/cms.service';
+import { RbacService } from '../rbac/rbac.service';
 import type { CmsItem } from '../../entities/cms-item.entity';
 
 function pageParams(page?: number, pageSize?: number) {
@@ -41,6 +42,7 @@ export class AdminService {
     private readonly jobsService: JobsService,
     private readonly fileOss: FileOssService,
     private readonly cms: CmsService,
+    private readonly rbac: RbacService,
   ) {}
 
   async dashboard() {
@@ -103,6 +105,19 @@ export class AdminService {
       skip,
       take,
     });
+    const roleList = await this.rbac.listRoles();
+    const deptTree = await this.rbac.listDeptTree();
+    const flatDepts: Array<{ id: string; name: string }> = [];
+    const walk = (nodes: any[]) => {
+      for (const n of nodes) {
+        flatDepts.push({ id: n.id, name: n.name });
+        if (n.children?.length) walk(n.children);
+      }
+    };
+    walk(deptTree as any[]);
+    const roleMap = new Map(roleList.map((r) => [r.id, r]));
+    const deptMap = new Map(flatDepts.map((d) => [d.id, d]));
+
     return {
       list: list.map((u) => ({
         id: u.id,
@@ -110,6 +125,10 @@ export class AdminService {
         nickname: u.nickname || '',
         avatar: u.avatar || '',
         role: u.role,
+        roleId: u.roleId || '',
+        roleName: roleMap.get(u.roleId)?.name || '',
+        deptId: u.deptId || '',
+        deptName: deptMap.get(u.deptId)?.name || '',
         theme: u.theme,
         totpEnabled: Boolean(u.totpEnabled),
         createdAt: u.createdAt,
@@ -126,6 +145,8 @@ export class AdminService {
     password: string;
     nickname?: string;
     role?: string;
+    roleId?: string;
+    deptId?: string;
   }) {
     const username = String(input.username || '').trim();
     const password = String(input.password || '');
@@ -133,11 +154,17 @@ export class AdminService {
     if (password.length < 6) throw new BadRequestException('密码至少 6 位');
     const exists = await this.users.findOne({ where: { username } });
     if (exists) throw new BadRequestException('用户名已存在');
-    const role = input.role === 'user' ? 'user' : 'admin';
+    const roleEntity = await this.rbac.resolveRoleCode(
+      input.roleId,
+      input.role || 'user',
+    );
+    const roleCode = roleEntity?.code || (input.role === 'admin' ? 'admin' : 'user');
     const user = this.users.create({
       username,
       passwordHash: await bcrypt.hash(password, 10),
-      role,
+      role: roleCode,
+      roleId: roleEntity?.id || '',
+      deptId: String(input.deptId || '').trim(),
       nickname: String(input.nickname || '').trim(),
       avatar: '',
       theme: 'dark',
@@ -150,18 +177,36 @@ export class AdminService {
       username: user.username,
       nickname: user.nickname,
       role: user.role,
+      roleId: user.roleId,
+      deptId: user.deptId,
       createdAt: user.createdAt,
     };
   }
 
   async updateUser(
     id: number,
-    input: { nickname?: string; role?: string; password?: string; theme?: string },
+    input: {
+      nickname?: string;
+      role?: string;
+      roleId?: string;
+      deptId?: string;
+      password?: string;
+      theme?: string;
+    },
   ) {
     const user = await this.users.findOne({ where: { id } });
     if (!user) throw new NotFoundException('用户不存在');
     if (input.nickname !== undefined) user.nickname = String(input.nickname || '').trim();
-    if (input.role === 'admin' || input.role === 'user') user.role = input.role;
+    if (input.deptId !== undefined) user.deptId = String(input.deptId || '').trim();
+    if (input.roleId !== undefined || input.role !== undefined) {
+      const roleEntity = await this.rbac.resolveRoleCode(input.roleId, input.role);
+      if (roleEntity) {
+        user.roleId = roleEntity.id;
+        user.role = roleEntity.code;
+      } else if (input.role === 'admin' || input.role === 'user') {
+        user.role = input.role;
+      }
+    }
     if (input.theme === 'light' || input.theme === 'dark') user.theme = input.theme;
     if (input.password) {
       if (input.password.length < 6) throw new BadRequestException('密码至少 6 位');
@@ -173,6 +218,8 @@ export class AdminService {
       username: user.username,
       nickname: user.nickname,
       role: user.role,
+      roleId: user.roleId,
+      deptId: user.deptId,
       theme: user.theme,
       updatedAt: user.updatedAt,
     };

@@ -11,6 +11,7 @@ import { GenerateSession } from '../../entities/generate-session.entity';
 import { SettingsModule } from '../settings/settings.module';
 import { JobsModule } from '../jobs/jobs.module';
 import { CmsModule } from '../cms/cms.module';
+import { RbacModule } from '../rbac/rbac.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
 
@@ -29,6 +30,7 @@ import { AdminService } from './admin.service';
     SettingsModule,
     JobsModule,
     CmsModule,
+    RbacModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

@@ -35,17 +35,22 @@ import { Roles } from '../auth/roles.decorator';
 import { RolesGuard } from '../auth/roles.guard';
 import { SkipFileOssSetup } from '../storage/file-oss-setup.guard';
 import { AdminService } from './admin.service';
+import { RbacService } from '../rbac/rbac.service';
 
 class CreateUserDto {
   @IsString() @MinLength(2) username!: string;
   @IsString() @MinLength(6) password!: string;
   @IsOptional() @IsString() nickname?: string;
-  @IsOptional() @IsIn(['admin', 'user']) role?: string;
+  @IsOptional() @IsString() role?: string;
+  @IsOptional() @IsString() roleId?: string;
+  @IsOptional() @IsString() deptId?: string;
 }
 
 class UpdateUserDto {
   @IsOptional() @IsString() nickname?: string;
-  @IsOptional() @IsIn(['admin', 'user']) role?: string;
+  @IsOptional() @IsString() role?: string;
+  @IsOptional() @IsString() roleId?: string;
+  @IsOptional() @IsString() deptId?: string;
   @IsOptional() @IsString() @MinLength(6) password?: string;
   @IsOptional() @IsIn(['light', 'dark']) theme?: string;
 }
@@ -124,9 +129,86 @@ class CmsImportDto {
 @SkipFileOssSetup()
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles('admin')
+@Roles('admin', 'ops')
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly rbac: RbacService,
+  ) {}
+
+  @Get('me/access')
+  myAccess(@Req() req: { user: { userId: number } }) {
+    return this.rbac.myAccess(req.user.userId);
+  }
+
+  @Get('depts')
+  listDepts(@Query('q') q?: string) {
+    return this.rbac.listDeptTree(q);
+  }
+
+  @Post('depts')
+  @Roles('admin')
+  createDept(@Body() body: Record<string, unknown>) {
+    return this.rbac.createDept(body as any);
+  }
+
+  @Patch('depts/:id')
+  @Roles('admin')
+  updateDept(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.rbac.updateDept(id, body as any);
+  }
+
+  @Delete('depts/:id')
+  @Roles('admin')
+  deleteDept(@Param('id') id: string) {
+    return this.rbac.deleteDept(id);
+  }
+
+  @Get('roles')
+  listRoles(@Query('q') q?: string) {
+    return this.rbac.listRoles(q);
+  }
+
+  @Post('roles')
+  @Roles('admin')
+  createRole(@Body() body: Record<string, unknown>) {
+    return this.rbac.createRole(body as any);
+  }
+
+  @Patch('roles/:id')
+  @Roles('admin')
+  updateRole(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.rbac.updateRole(id, body as any);
+  }
+
+  @Delete('roles/:id')
+  @Roles('admin')
+  deleteRole(@Param('id') id: string) {
+    return this.rbac.deleteRole(id);
+  }
+
+  @Get('menus')
+  listMenus(@Query('q') q?: string) {
+    return this.rbac.listMenuTree(q);
+  }
+
+  @Post('menus')
+  @Roles('admin')
+  createMenu(@Body() body: Record<string, unknown>) {
+    return this.rbac.createMenu(body as any);
+  }
+
+  @Patch('menus/:id')
+  @Roles('admin')
+  updateMenu(@Param('id') id: string, @Body() body: Record<string, unknown>) {
+    return this.rbac.updateMenu(id, body as any);
+  }
+
+  @Delete('menus/:id')
+  @Roles('admin')
+  deleteMenu(@Param('id') id: string) {
+    return this.rbac.deleteMenu(id);
+  }
 
   @Get('dashboard')
   dashboard() {
