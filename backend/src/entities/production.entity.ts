@@ -38,63 +38,63 @@ export class Production {
 
   /** 书库项目；空 = 平台级制作单 */
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   projectId!: string;
 
   /** 项目文件夹；空 = 根目录「我的项目」 */
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   folderId!: string;
 
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   chapterId!: string;
 
   /** 编译后的工作流画布 */
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   workflowId!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   name!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   description!: string;
 
   /** 剧本 / 梗概正文 */
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   script!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   cast!: ProductionCastMember[];
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   scenes!: ProductionScene[];
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   style!: ProductionStyle;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   assetIds!: string[];
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   templateId!: string;
 
   /** 镜头库来源 id（可选） */
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   shotLibraryId!: string;
 
   /** draft | ready | running | done */
-  @Column({ type: 'text', default: 'draft' })
+  @Column({ type: 'varchar', length: 64, default: 'draft' })
   status!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   tags!: string[];
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   thumbUrl!: string;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   meta!: Record<string, unknown>;
 
   @CreateDateColumn()

@@ -47,7 +47,7 @@ services:
       - ./config:/app/data
     environment:
       ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin123
+      ADMIN_PASSWORD: AdminPass123
       JWT_SECRET: aivideo-local-jwt-secret-do-not-use-in-prod
       SETTINGS_SECRET: aivideo-local-settings-secret-do-not-use-in-prod
       STORAGE_MODE: minio
@@ -57,9 +57,14 @@ services:
       FILE_OSS_ACCESS_KEY_ID: minioadmin
       FILE_OSS_ACCESS_KEY_SECRET: minioadmin
       FILE_OSS_KEY_PREFIX: ai/video-studio
-      TYPEORM_SYNCHRONIZE: "false"
+      TYPEORM_SYNCHRONIZE: "true"
       CORS_ORIGIN: "*"
       REDIS_URL: redis://127.0.0.1:6379
+      MYSQL_HOST: 8.130.171.89
+      MYSQL_PORT: "8096"
+      MYSQL_USER: root
+      MYSQL_PASSWORD: "12345678"
+      MYSQL_DATABASE: ai-video-studio
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1/health || exit 1"]
       interval: 30s

@@ -14,7 +14,7 @@ export class AppSetting {
   @Column({ unique: true })
   key!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   value!: string;
 
   @CreateDateColumn()

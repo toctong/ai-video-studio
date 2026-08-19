@@ -15,36 +15,36 @@ export class DiscoverPost {
   id!: string;
 
   @Index()
-  @Column({ type: 'text', default: 'workflow' })
+  @Column({ type: 'varchar', length: 64, default: 'workflow' })
   kind!: DiscoverPostKind;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   title!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   description!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   thumbUrl!: string;
 
   /** 导出包正文（工作流图 / 技能包 / 制作单 JSON 等） */
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   payload!: Record<string, unknown>;
 
   /** 来源实体 id（workflowId / productionId / skillId） */
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   sourceId!: string;
 
   @Index()
   @Column({ type: 'integer', default: 0 })
   authorUserId!: number;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   authorName!: string;
 
   @Index({ unique: true })
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   shareToken!: string;
 
   @Column({ type: 'integer', default: 0 })

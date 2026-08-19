@@ -14,7 +14,7 @@ export class JobRun {
   id!: string;
 
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   projectId!: string;
 
   @Column()
@@ -26,16 +26,16 @@ export class JobRun {
   @Column({ type: 'float', default: 0 })
   progress!: number;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   message!: string;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   payload!: Record<string, unknown>;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   result!: Record<string, unknown>;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   error!: string;
 
   @CreateDateColumn()

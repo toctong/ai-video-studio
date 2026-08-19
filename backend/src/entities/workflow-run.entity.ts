@@ -23,40 +23,40 @@ export class WorkflowRun {
   workflowId!: string;
 
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   projectId!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   jobRunId!: string;
 
-  @Column({ type: 'text', default: 'queued' })
+  @Column({ type: 'varchar', length: 64, default: 'queued' })
   status!: WorkflowRunStatus;
 
   /** 与 JobRun 进度同源，供 SSE / 轮询直接读取 */
-  @Column({ type: 'real', default: 0 })
+  @Column({ type: 'float', default: 0 })
   progress!: number;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   message!: string;
 
   /** 编辑态快照（Document） */
-  @Column({ type: 'simple-json', default: '{"schemaVersion":2,"nodes":[],"edges":[]}' })
+  @Column({ type: 'json', nullable: true })
   graphSnapshot!: WorkflowDocument;
 
   /** 执行态 Prompt */
-  @Column({ type: 'simple-json', default: '{"schemaVersion":1,"nodes":{}}' })
+  @Column({ type: 'json', nullable: true })
   promptSnapshot!: ExecutionPrompt;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   nodeStates!: Record<string, WorkflowNodeState>;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   inputs!: Record<string, unknown>;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   result!: Record<string, unknown>;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   error!: string;
 
   @CreateDateColumn()

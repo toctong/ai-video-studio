@@ -18,13 +18,13 @@ export class Timeline {
 
   /** 制作单级时间轴（遗留字段）；空 = 书库项目级时间轴 */
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   productionId!: string;
 
   @Column({ default: '主时间轴' })
   name!: string;
 
-  @Column({ type: 'simple-json', default: '{"tracks":[],"fps":24,"width":1280,"height":720}' })
+  @Column({ type: 'json', nullable: true })
   data!: {
     fps: number;
     width: number;
@@ -45,7 +45,7 @@ export class Timeline {
     }>;
   };
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   exportAssetId!: string;
 
   @CreateDateColumn()

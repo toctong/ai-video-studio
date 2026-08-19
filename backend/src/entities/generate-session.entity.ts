@@ -16,7 +16,7 @@ export class GenerateSession {
   @Column({ type: 'integer' })
   userId!: number;
 
-  @Column({ type: 'text', default: '新对话' })
+  @Column({ type: 'varchar', length: 255, default: '新对话' })
   title!: string;
 
   @Column({ type: 'boolean', default: false })

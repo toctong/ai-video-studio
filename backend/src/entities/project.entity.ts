@@ -15,26 +15,26 @@ export class Project {
   @Column()
   title!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   description!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   styleBrief!: string;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   progress!: ProjectProgress;
 
   /** 轻量故事状态：未收钩子、时间线速记 */
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   storyState!: ProjectStoryState;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   modelOverrides!: Record<string, string>;
 
   @Column({ default: false })
   archived!: boolean;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   coverAssetId!: string;
 
   @CreateDateColumn()

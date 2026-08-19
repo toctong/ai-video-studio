@@ -8,7 +8,6 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
-    "purge:studio": "node scripts/purge-studio-cache.js",
     "test": "npm run build --prefix ../packages/shared && tsc -p tsconfig.test.json && node --test dist-test/**/*.test.js"
   },
   "engines": {
@@ -26,8 +25,8 @@
     "@nestjs/typeorm": "^10.0.2",
     "axios": "^1.7.9",
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.10.0",
     "bullmq": "^6.0.8",
+    "mysql2": "^3.14.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "docx": "^9.7.1",

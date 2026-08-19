@@ -162,17 +162,21 @@ export class SchemaMigrateService implements OnModuleInit {
       `DELETE FROM timelines WHERE productionId IS NULL OR TRIM(productionId) = ''`,
     );
 
-    // 默认漫剧流水线工作流
-    const dramaWhere = `tags LIKE '%drama_pipeline%'
-         OR CAST(graph AS TEXT) LIKE '%drama_pipeline%'
-         OR CAST(graph AS TEXT) LIKE '%drama.chapterGenerate%'`;
-    await this.db.query(
-      `DELETE FROM workflow_revisions WHERE workflowId IN (SELECT id FROM workflows WHERE ${dramaWhere})`,
-    );
-    await this.db.query(
-      `DELETE FROM workflow_runs WHERE workflowId IN (SELECT id FROM workflows WHERE ${dramaWhere})`,
-    );
-    await this.db.query(`DELETE FROM workflows WHERE ${dramaWhere}`);
+    // 默认漫剧流水线工作流（MySQL：JSON/TEXT 用 CAST(... AS CHAR)）
+    const dramaWhere = `CAST(tags AS CHAR) LIKE '%drama_pipeline%'
+         OR CAST(graph AS CHAR) LIKE '%drama_pipeline%'
+         OR CAST(graph AS CHAR) LIKE '%drama.chapterGenerate%'`;
+    try {
+      await this.db.query(
+        `DELETE FROM workflow_revisions WHERE workflowId IN (SELECT id FROM workflows WHERE ${dramaWhere})`,
+      );
+      await this.db.query(
+        `DELETE FROM workflow_runs WHERE workflowId IN (SELECT id FROM workflows WHERE ${dramaWhere})`,
+      );
+      await this.db.query(`DELETE FROM workflows WHERE ${dramaWhere}`);
+    } catch (e: any) {
+      this.logger.warn(`drama workflow cleanup skipped: ${e?.message || e}`);
+    }
 
     // 清空项目上的默认 drama 工作流指针（列可能随后被实体删除）
     try {
@@ -232,7 +236,7 @@ export class SchemaMigrateService implements OnModuleInit {
 
     const jsonCol = (table: string, col: string) =>
       runReplace(
-        `UPDATE ${table} SET ${col} = REPLACE(CAST(${col} AS TEXT), ?, ?) WHERE CAST(${col} AS TEXT) LIKE ?`,
+        `UPDATE ${table} SET ${col} = REPLACE(CAST(${col} AS CHAR), ?, ?) WHERE CAST(${col} AS CHAR) LIKE ?`,
         [oldPrefix, newPrefix, likeAny],
       );
 

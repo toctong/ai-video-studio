@@ -15,23 +15,23 @@ export class Workflow {
 
   /** 空字符串 = 平台级模板/工作流 */
   @Index()
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 64, default: '' })
   projectId!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   name!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   description!: string;
 
   /** Document v2（读时 migrate 旧 v1） */
-  @Column({ type: 'simple-json', default: '{"schemaVersion":2,"nodes":[],"edges":[]}' })
+  @Column({ type: 'json', nullable: true })
   graph!: WorkflowDocument;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   thumbUrl!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   tags!: string[];
 
   @Column({ type: 'boolean', default: false })

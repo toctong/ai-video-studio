@@ -20,36 +20,36 @@ export class GenerateMessage {
   id!: string;
 
   @Index()
-  @Column({ type: 'text' })
+  @Column({ type: 'varchar', length: 64 })
   sessionId!: string;
 
-  @Column({ type: 'text', default: 'user' })
+  @Column({ type: 'varchar', length: 64, default: 'user' })
   role!: GenerateMessageRole;
 
-  @Column({ type: 'text', default: 'chat' })
+  @Column({ type: 'varchar', length: 64, default: 'chat' })
   kind!: GenerateMessageKind;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   content!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   mediaUrl!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   mediaOssKey!: string;
 
   /** 展示用比例，如 16:9 */
-  @Column({ type: 'text', default: '16:9' })
+  @Column({ type: 'varchar', length: 64, default: '16:9' })
   aspectRatio!: string;
 
   /** 生成参数快照（model/quality/count/refs…） */
-  @Column({ type: 'text', default: '{}' })
+  @Column({ type: 'longtext', nullable: true })
   prefsJson!: string;
 
-  @Column({ type: 'text', default: 'done' })
+  @Column({ type: 'varchar', length: 64, default: 'done' })
   status!: GenerateMessageStatus;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   errorMessage!: string;
 
   @CreateDateColumn()

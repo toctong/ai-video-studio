@@ -1,4 +1,4 @@
-# AI Video Studio 一体化镜像：Nginx + NestJS + FFmpeg
+# AI Video Studio 一体化镜像：Nginx + NestJS + FFmpeg + 前台 + 后台管理
 
 FROM node:22-alpine AS builder
 
@@ -10,12 +10,14 @@ COPY package.json package-lock.json* ./
 COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/
 COPY frontend/package.json frontend/
+COPY admin/package.json admin/
 
 RUN npm install --include-workspace-root --legacy-peer-deps
 
 COPY packages/shared packages/shared
 COPY backend backend
 COPY frontend frontend
+COPY admin admin
 
 RUN npm run build
 
@@ -29,7 +31,6 @@ RUN apk add --no-cache nginx wget tini ffmpeg redis python3 make g++ \
 
 ENV NODE_ENV=production
 ENV PORT=47822
-ENV DB_PATH=/app/data/ai-video-studio.db
 ENV LOG_DIR=/app/data/logs
 ENV UPLOAD_DIR=/app/data/uploads
 ENV REDIS_URL=redis://127.0.0.1:6379
@@ -47,6 +48,7 @@ RUN npm install -w ai-video-studio-backend --omit=dev --include-workspace-root \
 COPY --from=builder /build/packages/shared/dist packages/shared/dist
 COPY --from=builder /build/backend/dist backend/dist
 COPY --from=builder /build/frontend/dist /usr/share/nginx/html
+COPY --from=builder /build/admin/dist /usr/share/nginx/html/admin
 
 COPY docker/nginx.conf /etc/nginx/http.d/default.conf
 RUN rm -f /etc/nginx/conf.d/default.conf

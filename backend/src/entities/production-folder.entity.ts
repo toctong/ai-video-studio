@@ -11,11 +11,11 @@ export class ProductionFolder {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   name!: string;
 
   /** 父文件夹；空 = 根目录「我的项目」 */
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   parentId!: string;
 
   @Column({ type: 'integer', default: 0 })

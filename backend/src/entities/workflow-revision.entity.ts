@@ -19,10 +19,10 @@ export class WorkflowRevision {
   @Column({ type: 'integer', default: 1 })
   version!: number;
 
-  @Column({ type: 'simple-json', default: '{"schemaVersion":2,"nodes":[],"edges":[]}' })
+  @Column({ type: 'json', nullable: true })
   document!: WorkflowDocument;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   note!: string;
 
   @CreateDateColumn()

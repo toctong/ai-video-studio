@@ -1,7 +1,6 @@
 #!/bin/sh
 set -e
 
-export DB_PATH="${DB_PATH:-/app/data/ai-video-studio.db}"
 export LOG_DIR="${LOG_DIR:-/app/data/logs}"
 export UPLOAD_DIR="${UPLOAD_DIR:-/app/data/uploads}"
 export PORT="${PORT:-47822}"
@@ -9,9 +8,15 @@ export NODE_ENV="${NODE_ENV:-production}"
 # Docker 默认用容器内 Redis → BullMQ；外置 Redis 时自行设 REDIS_URL
 export REDIS_URL="${REDIS_URL:-redis://127.0.0.1:6379}"
 
+# MySQL（外置，不入镜像）
+export MYSQL_HOST="${MYSQL_HOST:-8.130.171.89}"
+export MYSQL_PORT="${MYSQL_PORT:-8096}"
+export MYSQL_USER="${MYSQL_USER:-root}"
+export MYSQL_PASSWORD="${MYSQL_PASSWORD:-12345678}"
+export MYSQL_DATABASE="${MYSQL_DATABASE:-ai-video-studio}"
+
 REDIS_DATA_DIR="${REDIS_DATA_DIR:-/app/data/redis}"
-mkdir -p "$(dirname "$DB_PATH")" "$LOG_DIR" "$UPLOAD_DIR" "$REDIS_DATA_DIR" /run/nginx
-rm -f "${DB_PATH}.lock"
+mkdir -p "$LOG_DIR" "$UPLOAD_DIR" "$REDIS_DATA_DIR" /run/nginx
 
 BACKEND_PID=""
 NGINX_PID=""
@@ -76,6 +81,8 @@ if need_embedded_redis; then
 else
   echo "[AI Video Studio] using external Redis → $REDIS_URL"
 fi
+
+echo "[AI Video Studio] MySQL → ${MYSQL_HOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
 
 cd /app/backend
 node dist/main.js &

@@ -40,9 +40,10 @@ import { GenerateModule } from './modules/generate/generate.module';
 import { GenerateSession } from './entities/generate-session.entity';
 import { GenerateMessage } from './entities/generate-message.entity';
 import { AppLogsModule } from './modules/app-logs/app-logs.module';
-import { typeormSynchronizeEnabled } from './config/env';
-
-const dbPath = process.env.DB_PATH || join(process.cwd(), 'data', 'ai-video-studio.db');
+import { AdminModule } from './modules/admin/admin.module';
+import { CmsModule } from './modules/cms/cms.module';
+import { CmsItem } from './entities/cms-item.entity';
+import { resolveMysqlConfig, typeormSynchronizeEnabled } from './config/env';
 
 @Module({
   imports: [
@@ -57,8 +58,8 @@ const dbPath = process.env.DB_PATH || join(process.cwd(), 'data', 'ai-video-stud
     }),
     StorageModule,
     TypeOrmModule.forRoot({
-      type: 'better-sqlite3',
-      database: dbPath,
+      type: 'mysql',
+      ...resolveMysqlConfig(),
       entities: [
         AppSetting,
         User,
@@ -78,9 +79,11 @@ const dbPath = process.env.DB_PATH || join(process.cwd(), 'data', 'ai-video-stud
         UserPrompt,
         GenerateSession,
         GenerateMessage,
+        CmsItem,
       ],
       // 未设置时：非 production 默认 true；production 默认 false
       synchronize: typeormSynchronizeEnabled(),
+      charset: 'utf8mb4',
     }),
     AuthModule,
     SettingsModule,
@@ -100,6 +103,8 @@ const dbPath = process.env.DB_PATH || join(process.cwd(), 'data', 'ai-video-stud
     DiscoverModule,
     UserPromptsModule,
     AppLogsModule,
+    CmsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
 })

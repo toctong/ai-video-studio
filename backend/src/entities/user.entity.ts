@@ -39,6 +39,17 @@ export class User {
   @Column({ default: false })
   totpEnabled!: boolean;
 
+  /**
+   * 通知偏好：任务完成 / 失败 / 系统公告
+   * 例：{ jobDone: true, jobFail: true, systemAnnounce: true }
+   */
+  @Column({ type: 'json', nullable: true })
+  notifyPrefs!: {
+    jobDone?: boolean;
+    jobFail?: boolean;
+    systemAnnounce?: boolean;
+  } | null;
+
   @CreateDateColumn()
   createdAt!: Date;
 

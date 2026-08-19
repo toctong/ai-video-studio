@@ -17,10 +17,10 @@ export class ShotLibraryExpand {
   @Column()
   shotId!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   label!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   category!: string;
 
   @Column({ type: 'integer', default: 10 })
@@ -29,24 +29,24 @@ export class ShotLibraryExpand {
   @Column({ type: 'integer', default: 0 })
   castCount!: number;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   castRoles!: string[];
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   videoPrompt!: string;
 
   /** 四拍故事剧情摘要（起势→高潮→收束） */
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   storyPlot!: string;
 
   /** 9 宫格剧情板出图提示词 */
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   plotGridPrompt!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   plotGridUrl!: string;
 
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   characters!: Array<{
     name: string;
     role: string;
@@ -56,7 +56,7 @@ export class ShotLibraryExpand {
     sheetPrompt?: string;
   }>;
 
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   scene!: {
     name: string;
     description: string;
@@ -64,11 +64,11 @@ export class ShotLibraryExpand {
   };
 
   /** 角色设定板图 url，key 为角色下标字符串 */
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   sheetUrls!: Record<string, string>;
 
   /** 可选关键道具（0～2）：巨印/卷轴/专武等需单独锁形的物件 */
-  @Column({ type: 'simple-json', default: '[]' })
+  @Column({ type: 'json', nullable: true })
   props!: Array<{
     name: string;
     role: string;
@@ -77,17 +77,17 @@ export class ShotLibraryExpand {
   }>;
 
   /** 角色定妆图 url，key 为角色下标字符串 */
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   portraitUrls!: Record<string, string>;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   sceneUrl!: string;
 
   /** 道具参考图 url，key 为道具下标字符串 */
-  @Column({ type: 'simple-json', default: '{}' })
+  @Column({ type: 'json', nullable: true })
   propUrls!: Record<string, string>;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   chatModel!: string;
 
   @CreateDateColumn()

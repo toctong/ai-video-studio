@@ -17,7 +17,7 @@ import {
   normalizeProviderId,
 } from '@ai-video-studio/shared';
 import { resolveSecret } from '../../config/env';
-import { HARDCODED_FILE_OSS } from '../../config/file-oss.hardcode';
+import { FILE_OSS_EMPTY } from '../../config/file-oss.hardcode';
 import { AppSetting } from '../../entities/app-setting.entity';
 import { JobConcurrencyNotifier } from './job-concurrency.notifier';
 
@@ -179,14 +179,7 @@ const DEFAULTS: SystemSettings = {
   defaultTtsModel: 'tts-1-hd',
   defaultMusicModel: 'suno-v4',
   jobConcurrency: 8,
-  fileOss: {
-    baseUrl: HARDCODED_FILE_OSS.baseUrl,
-    apiEndpoint: HARDCODED_FILE_OSS.apiEndpoint,
-    bucket: HARDCODED_FILE_OSS.bucket,
-    keyPrefix: HARDCODED_FILE_OSS.keyPrefix,
-    accessKeyId: HARDCODED_FILE_OSS.accessKeyId,
-    accessKeySecret: HARDCODED_FILE_OSS.accessKeySecret,
-  },
+  fileOss: { ...FILE_OSS_EMPTY },
 };
 
 const BUILTIN_VOLC_CHANNEL: LocalChannelRecord = {
@@ -676,14 +669,79 @@ export class SettingsService {
   }
 
   async getFileOssConfig(): Promise<FileOssConfig> {
+    await this.ensureMigrated();
+    const envBase = String(process.env.FILE_OSS_BASE_URL || '').trim();
+    const envApi = String(process.env.FILE_OSS_API_ENDPOINT || '').trim();
+    const envBucket = String(process.env.FILE_OSS_BUCKET || '').trim();
+    const envPrefix = String(process.env.FILE_OSS_KEY_PREFIX || '').trim();
+    const envId = String(process.env.FILE_OSS_ACCESS_KEY_ID || '').trim();
+    const envSecret = String(process.env.FILE_OSS_ACCESS_KEY_SECRET || '').trim();
+
+    const baseUrl = String((await this.getRaw('fileOssBaseUrl')) || envBase || '')
+      .trim()
+      .replace(/\/+$/, '');
+    const apiEndpoint = String((await this.getRaw('fileOssApiEndpoint')) || envApi || '')
+      .trim()
+      .replace(/\/+$/, '');
+    const bucket = String((await this.getRaw('fileOssBucket')) || envBucket || '').trim();
+    const keyPrefix = String(
+      (await this.getRaw('fileOssKeyPrefix')) || envPrefix || FILE_OSS_EMPTY.keyPrefix,
+    )
+      .trim()
+      .replace(/^\/+|\/+$/g, '');
+    const accessKeyId =
+      this.decrypt(await this.getRaw('fileOssAccessKeyId')) || envId || '';
+    const accessKeySecret =
+      this.decrypt(await this.getRaw('fileOssAccessKeySecret')) || envSecret || '';
+
     return {
-      baseUrl: HARDCODED_FILE_OSS.baseUrl.replace(/\/+$/, ''),
-      apiEndpoint: HARDCODED_FILE_OSS.apiEndpoint.replace(/\/+$/, ''),
-      bucket: HARDCODED_FILE_OSS.bucket,
-      keyPrefix: HARDCODED_FILE_OSS.keyPrefix,
-      accessKeyId: HARDCODED_FILE_OSS.accessKeyId,
-      accessKeySecret: HARDCODED_FILE_OSS.accessKeySecret,
+      baseUrl,
+      apiEndpoint,
+      bucket,
+      keyPrefix,
+      accessKeyId,
+      accessKeySecret,
     };
+  }
+
+  async upsertLocalModel(input: Partial<LocalModelRecord> & { modelId: string; channelSlug: string }) {
+    const modelId = String(input.modelId || '').trim();
+    const channelSlug = String(input.channelSlug || '').trim();
+    if (!modelId || !channelSlug) {
+      throw new Error('modelId 与 channelSlug 必填');
+    }
+    const models = await this.loadLocalModels();
+    const idx = models.findIndex(
+      (m) => m.modelId === modelId && m.channelSlug === channelSlug,
+    );
+    const next: LocalModelRecord = {
+      ...(idx >= 0 ? models[idx] : {}),
+      ...input,
+      modelId,
+      channelSlug,
+      title: String(input.title || input.label || modelId).trim(),
+      label: String(input.label || input.title || modelId).trim(),
+      modalities: Array.isArray(input.modalities) ? input.modalities : ['text'],
+      enabled: input.enabled !== false,
+      updatedAt: new Date().toISOString(),
+    };
+    if (idx >= 0) models[idx] = next;
+    else models.push(next);
+    await this.persistLocalModels(models);
+    return this.getPublic();
+  }
+
+  async removeLocalModel(modelId: string, channelSlug?: string) {
+    const id = String(modelId || '').trim();
+    if (!id) return this.getPublic();
+    const slug = String(channelSlug || '').trim();
+    const models = (await this.loadLocalModels()).filter((m) => {
+      if (m.modelId !== id) return true;
+      if (slug && m.channelSlug !== slug) return true;
+      return false;
+    });
+    await this.persistLocalModels(models);
+    return this.getPublic();
   }
 
   async findLocalModel(modelIdOrSlug: string): Promise<LocalModelRecord | null> {
@@ -937,7 +995,36 @@ export class SettingsService {
     }
 
     if (partial.fileOss) {
-      // 对象存储已写死，忽略设置页覆盖
+      const f = partial.fileOss;
+      if (f.baseUrl !== undefined) {
+        await this.setRaw('fileOssBaseUrl', String(f.baseUrl || '').trim().replace(/\/+$/, ''));
+      }
+      if (f.apiEndpoint !== undefined) {
+        await this.setRaw(
+          'fileOssApiEndpoint',
+          String(f.apiEndpoint || '').trim().replace(/\/+$/, ''),
+        );
+      }
+      if (f.bucket !== undefined) {
+        await this.setRaw('fileOssBucket', String(f.bucket || '').trim());
+      }
+      if (f.keyPrefix !== undefined) {
+        await this.setRaw(
+          'fileOssKeyPrefix',
+          String(f.keyPrefix || '')
+            .trim()
+            .replace(/^\/+|\/+$/g, ''),
+        );
+      }
+      if (f.accessKeyId) {
+        await this.setRaw('fileOssAccessKeyId', this.encrypt(String(f.accessKeyId).trim()));
+      }
+      if (f.accessKeySecret) {
+        await this.setRaw(
+          'fileOssAccessKeySecret',
+          this.encrypt(String(f.accessKeySecret).trim()),
+        );
+      }
     }
 
     return this.getPublic();

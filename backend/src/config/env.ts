@@ -129,3 +129,24 @@ export function minioConfiguredInEnv(): boolean {
       (readEnv('FILE_OSS_BUCKET') || readEnv('FILE_OSS_BASE_URL')),
   );
 }
+
+export type MysqlConfig = {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  database: string;
+};
+
+/** MySQL：优先读 MYSQL_*，缺省回落用户已有远程库（本地开发） */
+export function resolveMysqlConfig(): MysqlConfig {
+  const host = readEnv('MYSQL_HOST') || '8.130.171.89';
+  const port = Number(readEnv('MYSQL_PORT') || 8096);
+  const username = readEnv('MYSQL_USER') || 'root';
+  const password = readEnv('MYSQL_PASSWORD') || '12345678';
+  const database = readEnv('MYSQL_DATABASE') || 'ai-video-studio';
+  if (!Number.isFinite(port) || port <= 0) {
+    throw new Error('MYSQL_PORT 无效');
+  }
+  return { host, port, username, password, database };
+}

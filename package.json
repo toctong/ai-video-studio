@@ -4,25 +4,24 @@
   "workspaces": [
     "packages/*",
     "backend",
-    "frontend"
+    "frontend",
+    "admin"
   ],
   "scripts": {
     "build:shared": "npm run build -w @ai-video-studio/shared",
     "build:backend": "npm run build:shared && npm run build -w ai-video-studio-backend",
     "build:frontend": "npm run build:shared && npm run build -w ai-video-studio-frontend",
-    "build": "npm run build:shared && npm run build -w ai-video-studio-backend && npm run build -w ai-video-studio-frontend",
+    "build:admin": "npm run build -w ai-video-studio-admin",
+    "build": "npm run build:shared && npm run build -w ai-video-studio-backend && npm run build -w ai-video-studio-frontend && npm run build -w ai-video-studio-admin",
     "dev:backend": "npm run start:dev -w ai-video-studio-backend",
     "dev:frontend": "npm run dev -w ai-video-studio-frontend",
+    "dev:admin": "npm run dev -w ai-video-studio-admin",
     "test": "npm run test -w @ai-video-studio/shared && npm run test -w ai-video-studio-backend",
     "test:shared": "npm run test -w @ai-video-studio/shared",
     "test:backend": "npm run test -w ai-video-studio-backend",
     "test:frontend": "npm run test -w ai-video-studio-frontend",
-    "check:types": "npm run typecheck -w ai-video-studio-frontend",
-    "minio": "docker compose up -d minio",
-    "oss:upload-static": "node scripts/upload-static-to-minio.mjs",
-    "oss:seed-library": "node scripts/seed-nami-library.mjs",
-    "oss:import-library": "node scripts/import-nami-library-folder.mjs",
-    "oss:download-modes": "node scripts/download-nami-modes.mjs"
+    "check:types": "npm run typecheck -w ai-video-studio-frontend && npm run typecheck -w ai-video-studio-admin",
+    "minio": "docker compose up -d minio"
   },
   "engines": {
     "node": ">=22"

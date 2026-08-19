@@ -16,24 +16,24 @@ export class UserPrompt {
   @Column({ type: 'integer' })
   userId!: number;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'varchar', length: 255, default: '' })
   name!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   desc!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   prompt!: string;
 
   /** image | video */
-  @Column({ type: 'text', default: 'image' })
+  @Column({ type: 'varchar', length: 64, default: 'image' })
   mode!: string;
 
   /** FileOSS 公网封面 URL */
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   coverUrl!: string;
 
-  @Column({ type: 'text', default: '' })
+  @Column({ type: 'longtext', nullable: true })
   coverOssKey!: string;
 
   @CreateDateColumn()
